@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\fCWT.NET\fCWT.NET.csproj" />
+    <ProjectReference Include="..\FCWTAPI\fCWT.NET.csproj" />
   </ItemGroup>
 
 </Project>

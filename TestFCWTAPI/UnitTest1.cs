@@ -44,5 +44,29 @@ namespace TestFCWTAPI
             float[][] outputArray = FCWTAPI.FixOutputArray(testArray, 3, 1, 2);
             Assert.AreEqual(4, outputArray.GetLength(0)); 
         }
+        [Test]
+        public void TestSplitIntoRealAndImaginary()
+        {
+            float[][] testArray = new float[][]
+            {
+                new float[] {1F, 2F, 3F, 4F },
+                new float[] {5F, 6F, 7F, 8F }
+            };
+
+            FCWTAPI.SplitIntoRealAndImaginary(testArray, out float[][] realArray,
+                out float[][] imaginaryArray);
+            Assert.AreEqual(4, realArray[0].Length);
+            Assert.AreEqual(4, imaginaryArray[0].Length); 
+        }
+        [Test]
+        public void TestCalculatePhase()
+        {
+
+        }
+        [Test]
+        public void TestCalculateModulus()
+        {
+
+        }
     }
 }
