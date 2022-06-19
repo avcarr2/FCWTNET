@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using System;
-using FCWT.NET; 
+using FCWT.NET;
+using System.Linq; 
 
 namespace TestFCWTAPI
 {
@@ -61,12 +62,28 @@ namespace TestFCWTAPI
         [Test]
         public void TestCalculatePhase()
         {
+            float[][] testArray = new float[][]
+            {
+                new float[] {1F, 1.2F, 1.3F, 1.4F },
+                new float[] {1.5F, 1.6F, 1.7F, 1.8F }
+            };
 
+            float[][] phaseArray = FCWTAPI.CalculatePhase(testArray, testArray);
+
+            Assert.AreEqual(1.273, phaseArray[0][0], 0.001); 
         }
         [Test]
         public void TestCalculateModulus()
         {
+            float[][] testArray = new float[][]
+            {
+                new float[] {1F, 2F, 3F, 4F },
+                new float[] {5F, 6F, 7F, 8F }
+            };
 
+            float[][] modArray = FCWTAPI.CalculateModulus(testArray, testArray);
+            Console.WriteLine(string.Join("; ", modArray[0].AsEnumerable()));
+            Assert.AreEqual(1.41421, modArray[0][0], 0.001); 
         }
     }
 }

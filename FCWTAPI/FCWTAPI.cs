@@ -3,6 +3,8 @@ namespace FCWT.NET
 {
     public class FCWTAPI
     {
+        // TODO: If the size of the nvoices * noctaves * 2 is greater than max integer, split the 
+        // calculation into multiple chunks. 
         [DllImport("fCWT.dll", EntryPoint = "?cwt@fcwt@@YAXPEAMH0HHHMH_N@Z")]
         private static extern void _cwt([In] float[] input, int inputsize, [In, Out] float[] output,
             int pstoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes);
@@ -17,6 +19,17 @@ namespace FCWT.NET
             float[][] results = FixOutputArray(output, inputSize, noctaves, pnbvoice);
             return results;
         }
+        /// <summary>
+        /// Performs a fast continous wavelet transform with a morlet wavelet. 
+        /// </summary>
+        /// <param name="input"></param><summary>Input signal to be transformed.</summary>
+        /// <param name="psoctave"></param><summary>Start octave (power of two) to calculate.</summary>
+        /// <param name="pendoctave"></param><summary>Final octave. </summary>
+        /// <param name="pnbvoice"></param><summary>Number of voices per octave.</summary>
+        /// <param name="c0"></param><summary>Central frequency of the morlet wavelet.</summary>
+        /// <param name="nthreads"></param><summary>Number of threads to use. </summary>
+        /// <param name="use_optimization_schemes"></param><summary>fCWT optimization scheme to use.</summary>
+        /// <returns></returns>
         public static float[][] CWT(double[] input, int psoctave, int pendoctave,
             int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
         {
@@ -40,6 +53,14 @@ namespace FCWT.NET
         {
             return new float[size * noctave * nvoice * 2];
         }
+        /// <summary>
+        /// Moves the 1D array to a 2D jagged array. 
+        /// </summary>
+        /// <param name="array1D"></param>
+        /// <param name="size"></param>
+        /// <param name="noctave"></param>
+        /// <param name="nvoice"></param>
+        /// <returns></returns>
         public static float[][] FixOutputArray(float[] array1D, int size, int noctave, int nvoice)
         {
             // from the original fCWT library code 
@@ -95,12 +116,19 @@ namespace FCWT.NET
                 combinedIndexer++;
             }
         }
+        /// <summary>
+        /// Calculates the phase of the continuous wavelet transform output using a morlet wavelet. 
+        /// </summary>
+        /// <param name="realArray"></param><summary>The real part of the complex morlet CWT.</summary>
+        /// <param name="imagArray"></param><summary>The imaginary part of the complex morlet CWT. </summary>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static float[][] CalculatePhase(float[][] realArray, float[][] imagArray)
         {
             int realRows = realArray.GetLength(0);
             int imagRows = imagArray.GetLength(0);  
 
-            int realCols = realArray.GetLength(1);
+            int realCols = realArray[0].Length;
             if(realRows != imagRows)
             {
                 throw new ArgumentException("Real and imaginary arrays have unequal lengths"); 
@@ -121,12 +149,19 @@ namespace FCWT.NET
             }
             return phaseArray; 
         }
+        /// <summary>
+        /// Calculates the modulus of the complex morlet continuous wavelet transform. 
+        /// </summary>
+        /// <param name="realArray"></param>
+        /// <param name="imagArray"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static float[][] CalculateModulus(float[][] realArray, float[][] imagArray)
         {
             int realRows = realArray.GetLength(0);
             int imagRows = imagArray.GetLength(0);
 
-            int realCols = realArray.GetLength(1);
+            int realCols = realArray[0].Length;
             if (realRows != imagRows)
             {
                 throw new ArgumentException("Real and imaginary arrays have unequal lengths");
