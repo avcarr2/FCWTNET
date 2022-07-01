@@ -44,9 +44,8 @@ namespace FCWT.NET
         {
             // from the original fCWT library code 
             int numberRows = noctave * nvoice * 2; 
-
+            // Creates the final with freq as higher dim
             float[][] fixedResults = new float[numberRows][];
-            
             for(int i = 0; i < numberRows; i++)
             {
                 float[] temp = new float[size]; 
@@ -58,6 +57,22 @@ namespace FCWT.NET
             }
             return fixedResults;
         }
-        
+        //First element corresponds to the first jagged array dimension, second element corresponds to the second dim
+        public static float[,] ToTwoDArray(float[][] JaggedTwoD)
+        {
+
+            int arrayCount = JaggedTwoD.Length;
+            int arrayLength = JaggedTwoD[1].Length;
+            float[,] twodOutput = new float[arrayCount, arrayLength];
+            for (int i = 0; i < arrayCount; i++)
+            {
+                for (int j = 0; j < arrayLength; j++)
+                {
+                    twodOutput[i, j] = JaggedTwoD[i][j];
+                }
+            }
+            return twodOutput;
+        }
+
     }
 }

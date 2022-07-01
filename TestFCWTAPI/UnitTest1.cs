@@ -44,5 +44,19 @@ namespace TestFCWTAPI
             float[][] outputArray = FCWTAPI.FixOutputArray(testArray, 3, 1, 2);
             Assert.AreEqual(4, outputArray.GetLength(0)); 
         }
+
+        [Test]
+        public void TestToTwoDArray()
+        {
+            float[][] testJagged2d = new float[][]
+            {
+                new float[] {1, 2, 3, 4, 5, 6},
+                new float[] {7, 8, 9, 10, 11, 12 },
+                new float[] {11, 12, 13, 14, 15, 16}
+            };
+            float[,] test2DArray = FCWTAPI.ToTwoDArray(testJagged2d);
+            Assert.AreEqual(3, test2DArray.GetLength(0));
+            Assert.AreEqual(6, test2DArray.GetLength(1));
+        }
     }
 }
