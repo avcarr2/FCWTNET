@@ -66,7 +66,7 @@ namespace FCWT.NET
             float[,] twodOutput = new float[arrayCount, arrayLength];
             for (int i = 0; i < arrayCount; i++)
             {
-                // If any array length is not equal to the previous sets arrayLength to a value which will throw an out of range exception
+                // If any array length is not equal to the previous sets arrayLength to a value which will throw an IndexOutOfRangeException
                 if(i > 0)
                 {
                     if (JaggedTwoD[i].Length != JaggedTwoD[i - 1].Length) { arrayLength = JaggedTwoD[i].Length + 1; }
