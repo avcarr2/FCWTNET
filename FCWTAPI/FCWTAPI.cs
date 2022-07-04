@@ -57,19 +57,33 @@ namespace FCWT.NET
             }
             return fixedResults;
         }
-        //First element corresponds to the first jagged array dimension, second element corresponds to the second dim
+        //First element corresponds to the first jagged array dimension (voices), second element corresponds to the second dim (timepoints)
         public static float[,] ToTwoDArray(float[][] JaggedTwoD)
         {
 
             int arrayCount = JaggedTwoD.Length;
-            int arrayLength = JaggedTwoD[1].Length;
+            int arrayLength = JaggedTwoD[0].Length;
             float[,] twodOutput = new float[arrayCount, arrayLength];
             for (int i = 0; i < arrayCount; i++)
             {
-                for (int j = 0; j < arrayLength; j++)
+                // If any array length is not equal to the previous sets arrayLength to a value which will throw an out of range exception
+                if(i > 0)
                 {
-                    twodOutput[i, j] = JaggedTwoD[i][j];
+                    if (JaggedTwoD[i].Length != JaggedTwoD[i - 1].Length) { arrayLength = JaggedTwoD[i].Length + 1; }
                 }
+                try
+                {
+                    for (int j = 0; j < arrayLength; j++)
+                    {
+                        twodOutput[i, j] = JaggedTwoD[i][j];
+                    }
+                }
+                catch(IndexOutOfRangeException)
+                {
+                    string rowError = String.Format("Invalid array length in row {0}", i);
+                    throw new IndexOutOfRangeException(rowError);
+                }
+                
             }
             return twodOutput;
         }
