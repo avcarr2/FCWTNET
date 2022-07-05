@@ -91,9 +91,10 @@ namespace TestFCWTAPI
             }
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
             CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            cosineCWT.PreformCWT();
+            cosineCWT.PerformCWT();
             Assert.AreEqual(cosineCWT.OutputCWT.GetLength(0), 200 * 6 * 2);
             Assert.AreEqual(cosineCWT.OutputCWT.GetLength(1), 1000);
         }
+
     }
 }

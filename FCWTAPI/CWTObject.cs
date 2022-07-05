@@ -28,7 +28,7 @@ namespace FCWT.NET
             Use_Optimization_Schemes = use_optimization_schemes;
             OutputCWT = null;
         }
-        public void PreformCWT()
+        public void PerformCWT()
         {
             float[][] jaggedCWT = FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes);
             OutputCWT = FCWTAPI.ToTwoDArray(jaggedCWT);
