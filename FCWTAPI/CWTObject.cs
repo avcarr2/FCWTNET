@@ -9,24 +9,29 @@ namespace FCWT.NET
 {
     public class CWTObject
     {
-        public double[] inputData { get; }
-        public int psoctave { get; }
-        public int pendoctave { get; }
-        public int pnbvoice { get; }
-        public float c0 { get; }
-        public int nthreads { get; }
-        public bool use_optimization_schemes { get; }
-        public float[,] outputCWT { get; private set; }
+        public double[] InputData { get; }
+        public int Psoctave { get; }
+        public int Pendoctave { get; }
+        public int Pnbvoice { get; }
+        public float C0 { get; }
+        public int Nthreads { get; }
+        public bool Use_Optimization_Schemes { get; }
+        public float[,]? OutputCWT { get; private set; }
         public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
         {
-            this.inputData = inputData;
-            this.psoctave = psoctave;
-            this.pendoctave = pendoctave;
-            this.pnbvoice = pnbvoice;
-            this.c0 = c0;
-            this.nthreads = nthreads;
-            this.use_optimization_schemes = use_optimization_schemes;
-            this.outputCWT = FCWTAPI.ToTwoDArray(FCWTAPI.CWT(inputData, psoctave, pendoctave, pnbvoice, c0, nthreads, use_optimization_schemes));
+            InputData = inputData;
+            Psoctave = psoctave;
+            Pendoctave = pendoctave;
+            this.Pnbvoice = pnbvoice;
+            C0 = c0;
+            Nthreads = nthreads;
+            Use_Optimization_Schemes = use_optimization_schemes;
+            OutputCWT = null;
+        }
+        public void PreformCWT()
+        {
+            float[][] jaggedCWT = FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes);
+            OutputCWT = FCWTAPI.ToTwoDArray(jaggedCWT);
         }
 
     }

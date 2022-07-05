@@ -80,7 +80,7 @@ namespace TestFCWTAPI
             Assert.Throws<IndexOutOfRangeException>(() => FCWTAPI.ToTwoDArray(badJaggedArray3));
         }
         [Test]
-        public void testCWTObjectInstantiation()
+        public void testPreformCWT()
         {
             double[] testValues = new double[1000];
             double constant = 1D / 1000D * 2D * Math.PI;
@@ -91,8 +91,9 @@ namespace TestFCWTAPI
             }
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
             CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            Assert.AreEqual(cosineCWT.outputCWT.GetLength(0), 200 * 6 * 2);
-            Assert.AreEqual(cosineCWT.outputCWT.GetLength(1), 1000);
+            cosineCWT.PreformCWT();
+            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(0), 200 * 6 * 2);
+            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(1), 1000);
         }
     }
 }
