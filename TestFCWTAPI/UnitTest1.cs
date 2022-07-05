@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using System;
-using FCWT.NET; 
+using FCWT.NET;
 
 namespace TestFCWTAPI
 {
@@ -78,6 +78,21 @@ namespace TestFCWTAPI
                 new float[] {11, 12, 13, 14, 15, 16, 22}
             };
             Assert.Throws<IndexOutOfRangeException>(() => FCWTAPI.ToTwoDArray(badJaggedArray3));
+        }
+        [Test]
+        public void testCWTObjectInstantiation()
+        {
+            double[] testValues = new double[1000];
+            double constant = 1D / 1000D * 2D * Math.PI;
+            for (int i = 0; i < 1000; i++)
+            {
+                double val = (double)i * constant;
+                testValues[i] = val;
+            }
+            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
+            CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
+            Assert.AreEqual(cosineCWT.outputCWT.GetLength(0), 200 * 6 * 2);
+            Assert.AreEqual(cosineCWT.outputCWT.GetLength(1), 1000);
         }
     }
 }
