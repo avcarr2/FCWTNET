@@ -158,13 +158,13 @@ namespace TestFCWTAPI
         public void TestNormalizeMatrix()
         {
             double[,] unnormalizedMatrix = new double[,] { { 5, 7, 9 }, { 3, 4, 7 }, { 5, 6, 7 } };
-            double unnormalizedRatio1 = unnormalizedMatrix[0, 2] / unnormalizedMatrix[1, 3];
-            double unnormalizedRatio2 = unnormalizedMatrix[1, 2] / unnormalizedMatrix[2, 3];
+            double unnormalizedRatio1 = unnormalizedMatrix[0, 2] / unnormalizedMatrix[1, 2];
+            double unnormalizedRatio2 = unnormalizedMatrix[1, 2] / unnormalizedMatrix[2, 2];
             double[,] normalizedMatrix = GaussianSmoothing.NormalizeMatrix(unnormalizedMatrix);
-            double normalizedRatio1 = normalizedMatrix[0, 2] / normalizedMatrix[1, 3];
-            double normalizedRatio2 = normalizedMatrix[1, 2] / normalizedMatrix[2, 3];
-            Assert.AreEqual(normalizedRatio1, unnormalizedRatio1);
-            Assert.AreEqual(normalizedRatio2, unnormalizedRatio2);
+            double normalizedRatio1 = normalizedMatrix[0, 2] / normalizedMatrix[1, 2];
+            double normalizedRatio2 = normalizedMatrix[1, 2] / normalizedMatrix[2, 2];
+            Assert.AreEqual(normalizedRatio1, unnormalizedRatio1, 0.001);
+            Assert.AreEqual(normalizedRatio2, unnormalizedRatio2, 0.001);
             double normalizedSum = 0;
             for(int i = 0; i < unnormalizedMatrix.GetLength(0); i++)
             {
@@ -173,7 +173,7 @@ namespace TestFCWTAPI
                     normalizedSum = normalizedSum + normalizedMatrix[i, j];
                 }
             }
-            Assert.AreEqual(normalizedSum, unnormalizedRatio1, 0.001);
+            Assert.AreEqual(normalizedSum, 1, 0.001);
             
         }
         [Test]
@@ -183,20 +183,19 @@ namespace TestFCWTAPI
             var pointArray = new (int, int, double)[]
             {
                 (8, 8, 1),
-                (27, 8, 1),
-                (43, 2, 1),
-                (50, 50, 1)
+                (27, 8, -1),
+                (2, 43, 1),
+                (49, 49, 1)
             };
-            for(int i = 0; i < 51; i++)
+            for(int i = 0; i < 50; i++)
             {
                 for (int j = 0; j < 50; j++)
                 {
-                    for (int t = 0; t < 50; t++)
+                    for (int t = 0; t < 4; t++)
                         if (i == pointArray[t].Item1 && j == pointArray[t].Item2)
                         {
                             test2DArray[i, j] = pointArray[t].Item3;
                         }
-                        else { test2DArray[i, j] = 0; }
                 }
                 
             }
@@ -206,6 +205,7 @@ namespace TestFCWTAPI
             {
                 valueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, pointArray[p].Item1, pointArray[p].Item2, test1dKernal, 0);
             }
+            int numberOne = 1;
         }
     }
 

@@ -70,7 +70,7 @@ namespace FCWT.NET
             }
             return res2;
         }
-        private static double ProcessPoint(double[,] matrix, int x, int y, double[,] kernel, int direction)
+        public static double ProcessPoint(double[,] matrix, int x, int y, double[,] kernel, int direction)
         {
             double res = 0;
             int half = kernel.GetLength(0) / 2;
