@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32421.90
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fCWT.NET", "fCWT.NET.csproj", "{AA8D8FDA-9932-40E6-9D0D-7F7B1DD6CB34}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "fCWT.NET", "FCWTAPI\fCWT.NET.csproj", "{F441276A-BBAB-45D2-81B4-5E520143E817}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestFCWTAPI", "..\TestFCWTAPI\TestFCWTAPI.csproj", "{98D8BEBA-38B8-4002-84C6-C4359784DEFF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFCWTAPI", "TestFCWTAPI\TestFCWTAPI.csproj", "{A3980534-1784-4539-BE17-4CDB3E456D3A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{AA8D8FDA-9932-40E6-9D0D-7F7B1DD6CB34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AA8D8FDA-9932-40E6-9D0D-7F7B1DD6CB34}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AA8D8FDA-9932-40E6-9D0D-7F7B1DD6CB34}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AA8D8FDA-9932-40E6-9D0D-7F7B1DD6CB34}.Release|Any CPU.Build.0 = Release|Any CPU
-		{98D8BEBA-38B8-4002-84C6-C4359784DEFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{98D8BEBA-38B8-4002-84C6-C4359784DEFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{98D8BEBA-38B8-4002-84C6-C4359784DEFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{98D8BEBA-38B8-4002-84C6-C4359784DEFF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F441276A-BBAB-45D2-81B4-5E520143E817}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F441276A-BBAB-45D2-81B4-5E520143E817}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F441276A-BBAB-45D2-81B4-5E520143E817}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F441276A-BBAB-45D2-81B4-5E520143E817}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3980534-1784-4539-BE17-4CDB3E456D3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3980534-1784-4539-BE17-4CDB3E456D3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3980534-1784-4539-BE17-4CDB3E456D3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3980534-1784-4539-BE17-4CDB3E456D3A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
