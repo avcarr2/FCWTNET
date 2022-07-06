@@ -64,11 +64,10 @@ namespace FCWT.NET
         public static float[][] FixOutputArray(float[] array1D, int size, int noctave, int nvoice)
         {
             // from the original fCWT library code 
-            int numberRows = noctave * nvoice * 2;
-
+            int numberRows = noctave * nvoice * 2; 
+            // Creates the final with freq as higher dim
             float[][] fixedResults = new float[numberRows][];
-
-            for (int i = 0; i < numberRows; i++)
+            for(int i = 0; i < numberRows; i++)
             {
                 float[] temp = new float[size];
                 for (int j = 0; j < size; j++)
@@ -79,6 +78,38 @@ namespace FCWT.NET
             }
             return fixedResults;
         }
+
+        //First element corresponds to the first jagged array dimension (voices), second element corresponds to the second dim (timepoints)
+        public static float[,] ToTwoDArray(float[][] JaggedTwoD)
+        {
+
+            int arrayCount = JaggedTwoD.Length;
+            int arrayLength = JaggedTwoD[0].Length;
+            float[,] twodOutput = new float[arrayCount, arrayLength];
+            for (int i = 0; i < arrayCount; i++)
+            {
+                // If any array length is not equal to the previous sets arrayLength to a value which will throw an IndexOutOfRangeException
+                if(i > 0)
+                {
+                    if (JaggedTwoD[i].Length != JaggedTwoD[i - 1].Length) { arrayLength = JaggedTwoD[i].Length + 1; }
+                }
+                try
+                {
+                    for (int j = 0; j < arrayLength; j++)
+                    {
+                        twodOutput[i, j] = JaggedTwoD[i][j];
+                    }
+                }
+                catch(IndexOutOfRangeException)
+                {
+                    string rowError = String.Format("Invalid array length in row {0}", i);
+                    throw new IndexOutOfRangeException(rowError);
+                }
+                
+            }
+            return twodOutput;
+        }
+
         /// <summary>
         /// Used to split the imaginary and the real arrays when using a complex wavelet, i.e. the morlet. 
         /// </summary>
@@ -182,5 +213,6 @@ namespace FCWT.NET
             return modArray;
         }
         
+
     }
 }
