@@ -3,6 +3,7 @@ using System;
 using FCWT.NET;
 using System.Linq; 
 
+
 namespace TestFCWTAPI
 {
     public class Tests
@@ -122,5 +123,22 @@ namespace TestFCWTAPI
             Assert.AreEqual(1.41421, modArray[0][0], 0.001); 
 
         }
+        [Test]
+        public void testPreformCWT()
+        {
+            double[] testValues = new double[1000];
+            double constant = 1D / 1000D * 2D * Math.PI;
+            for (int i = 0; i < 1000; i++)
+            {
+                double val = (double)i * constant;
+                testValues[i] = val;
+            }
+            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
+            CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
+            cosineCWT.PerformCWT();
+            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(0), 200 * 6 * 2);
+            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(1), 1000);
+        }
+
     }
 }
