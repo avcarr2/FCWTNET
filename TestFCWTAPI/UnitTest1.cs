@@ -180,14 +180,14 @@ namespace TestFCWTAPI
         public void TestProcessPoint()
         {
             double[,] test2DArray = new double[51, 51];
-            var pointArray = new (int, int, double)[]
+            var pointArray = new (int, int, double)[] // List of points to add to a test array
             {
-                (8, 8, 1),
-                (27, 8, -1),
-                (2, 43, 1),
-                (50, 50, 1)
+                (8, 8, 1), // Generic point
+                (27, 8, -1), // Sample point with a negative value
+                (2, 43, 1), // Sample point next to an edge
+                (50, 50, 1) // Sample point in a corner
             };
-            var neighborArray = new (int, int)[]
+            var neighborArray = new (int, int)[] // Generates a list of cooridinates to points adjacent to the points in pointArray on the x direction
             {
                 (7, 8),
                 (26, 8),
@@ -195,7 +195,8 @@ namespace TestFCWTAPI
                 (49, 50)
             };
 
-            for(int i = 0; i < 51; i++)
+            // Generates a 2D array containing all points from pointArray
+            for (int i = 0; i < 51; i++)
             {
                 for (int j = 0; j < 51; j++)
                 {
@@ -207,14 +208,15 @@ namespace TestFCWTAPI
                 }
                 
             }
-            double[] valueArray = new double[4];
-            double[] neighborValueArray = new double[4];
-            double testDeviation = 2;
-            int testSize = 7;
-            double[,] test1dKernal = GaussianSmoothing.CalculateNormalized1DSampleKernel(testDeviation);
-            double gaussPoint4 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(3 - testSize / 2) * (3 - testSize / 2) / (2 * testDeviation * testDeviation));
-            double gaussPoint3 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(2 - testSize / 2) * (2 - testSize / 2) / (2 * testDeviation * testDeviation));
-            for (int p = 0; p < 4; p++)
+
+            double[] valueArray = new double[4]; // Array to store transformed values of the pointArray points
+            double[] neighborValueArray = new double[4]; // Array to store transformed values of the neighborArray points
+            double testDeviation = 1; //Deviation of the guassian used
+            int testSize = 7; // Size of the gaussian used
+            double[,] test1dKernal = GaussianSmoothing.CalculateNormalized1DSampleKernel(testDeviation); // 1D gaussian kernal generated to test this
+            double gaussPoint4 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(3 - testSize / 2) * (3 - testSize / 2) / (2 * testDeviation * testDeviation)); // Point at the center of the gaussian
+            double gaussPoint3 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(2 - testSize / 2) * (2 - testSize / 2) / (2 * testDeviation * testDeviation)); // Point 1 unit off center of the gaussian
+            for (int p = 0; p < 4; p++) //Checks that all values from the Process point function are what they should be
             {
                 valueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, pointArray[p].Item1, pointArray[p].Item2, test1dKernal, 0);
                 neighborValueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, neighborArray[p].Item1, neighborArray[p].Item2, test1dKernal, 0);
@@ -242,21 +244,28 @@ namespace TestFCWTAPI
             };
             Assert.Throws<ArgumentException>(() => GaussianSmoothing.GaussianConvolution(invalid2DArray, 1));
             double[,] test2DArray = new double[51, 51];
-            var pointArray = new (int, int, double)[]
+            var pointArray = new (int, int, double)[] // List of points to add to a test array
             {
-                (8, 8, 1),
-                (27, 8, -1),
-                (2, 43, 1),
-                (50, 50, 1)
+                (8, 8, 1), // Generic point
+                (27, 8, -1), // Sample point with a negative value
+                (2, 43, 1), // Sample point next to an edge
+                (50, 50, 1) // Sample point in a corner
             };
-            var neighborArray = new (int, int)[]
+            var adjacentArray = new (int, int)[] // Generates a list of cooridinates to points adjacent to the points in pointArray
             {
                 (7, 8),
-                (26, 8),
+                (27, 9),
                 (1, 43),
-                (49, 50)
+                (50, 49)
             };
-
+            var diagonalArray = new (int, int)[] // Generates a list of cooridinates to points diagonal to the points in pointArray
+            {
+                (9, 9),
+                (28, 9),
+                (3, 44),
+                (49, 49)
+            };
+            // Generates a 2D array containing all points from pointArray
             for (int i = 0; i < 51; i++)
             {
                 for (int j = 0; j < 51; j++)
@@ -269,9 +278,19 @@ namespace TestFCWTAPI
                 }
 
             }
-            double testDeviation = 1;
+            double testDeviation = 1; // Deviation of our test 2d gaussian
             double centerPoint = 1 / (2 * Math.PI * testDeviation);
-
+            double adjacentPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(-(1 * 1) / (2 * testDeviation * testDeviation)); // Calculates a point 1 off from the center of the 2d gaussian in any direction
+            double diagonalPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(- 2 / (2 * testDeviation * testDeviation)); // Calculates a point 1 off from the center in in x and y direction
+            double[,] testBlurredArray = GaussianSmoothing.GaussianConvolution(test2DArray, testDeviation); // Calculats the gaussian convolution of our test 2d gaussian with tesd2DArray
+            for (int p = 0; p < 4; p++)
+            {
+                Assert.AreEqual(centerPoint * pointArray[p].Item3, testBlurredArray[pointArray[p].Item1, pointArray[p].Item2], 0.001); // Checks all the center point values for correctness
+                Assert.AreEqual(adjacentPoint * pointArray[p].Item3, testBlurredArray[adjacentArray[p].Item1, adjacentArray[p].Item2], 0.001); // Checks all the adjacent point values for correctness
+                Assert.AreEqual(diagonalPoint * pointArray[p].Item3, testBlurredArray[diagonalArray[p].Item1, diagonalArray[p].Item2], 0.001); // Checks all the diagonal point values for correctness
+            }
+            // Note: this guassian smoothing function does not preserve the the total "intensity" of the array it operates on, there exists a sort of edge darkening that should be fixed later
+            // The unit test for this new function should include a module to ensure that the sum of the original array equals the sum of the blurred array
 
         }
     }

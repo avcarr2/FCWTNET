@@ -1,10 +1,18 @@
 ﻿
 namespace FCWT.NET
 {
+    /// <summary>
+    /// Code Derived from http://haishibai.blogspot.com/2009/09/image-processing-c-tutorial-4-gaussian.html
+    /// </summary>
     public class GaussianSmoothing
     {
-        // Code Below is meant to calculate the gaussian kernal in 1D
-        // This first method calculated the kernal based on a single stdev and the desired size of the kernal
+        
+        /// <summary>
+        /// Function to calculate a 1D gaussian kernal 
+        /// </summary>
+        /// <param name="deviation"></param><summary>Standard deviation of the gaussian</summary>
+        /// <param name="size"></param><summary>Size of the 1D gaussian kernal array</summary>
+        /// <returns name="ret"> 1D gaussian kernal array</returns>
         public static double[,] Calculate1DSampleKernel(double deviation, int size)
         {
             double[,] ret = new double[size, 1];
@@ -17,17 +25,30 @@ namespace FCWT.NET
             }
             return ret;
         }
-        // Calculates 1D kernal based on stdev alone setting radius to 3*stdev + 1
+        /// <summary>
+        /// Overload of Calculat1DSampleKernal which automatically sets the array size of the kernal to Ceiling(deviation * 3) * 2 + 1
+        /// </summary>
+        /// <param name="deviation"></param>
+        /// <returns></returns>
         public static double[,] Calculate1DSampleKernel(double deviation)
         {
             int size = (int)Math.Ceiling(deviation * 3) * 2 + 1;
             return Calculate1DSampleKernel(deviation, size);
         }
-        // Calculates a normalized 1d sample kernal 
+        /// <summary>
+        /// Calculates a normalized 1D gaussian kernal
+        /// </summary>
+        /// <param name="deviation"></param>
+        /// <returns></returns>
         public static double[,] CalculateNormalized1DSampleKernel(double deviation)
         {
             return NormalizeMatrix(Calculate1DSampleKernel(deviation));
         }
+        /// <summary>
+        /// Normalizes any double[,] array such that the sum of all elements is equal to 1
+        /// </summary>
+        /// <param name="matrix"> double[,] array to be normalized </param>
+        /// <returns name="ret"> normalized double[,] array</returns>
         public static double[,] NormalizeMatrix(double[,] matrix)
         {
             double[,] ret = new double[matrix.GetLength(0), matrix.GetLength(1)];
@@ -47,41 +68,47 @@ namespace FCWT.NET
             }
             return ret;
         }
-        // Calculates a gaussian convolution from a given double matrix splitting the calc into
-        // x and y direction convolution are calculated separately
+        /// <summary>
+        /// Method to preform the 2D gaussian smoothing
+        /// This method applies the smoothing operation by first smoothing in the x direction, then the y direction using a symmetric 1D kernal
+        /// </summary>
+        /// <param name="matrix">double[,] array to be smoothed </param>
+        /// <param name="deviation">deviation of the gaussian smoothing function</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException">Exception to prevent input matrix from being smaller than the convolving function</exception>
         public static double[,] GaussianConvolution(double[,] matrix, double deviation)
         {
             if (matrix.GetLength(0) < (deviation * 6 + 1) || matrix.GetLength(1) < (deviation * 6 + 1))
             {
                 throw new ArgumentException("Matrix may not be smaller than the convoluting gaussian kernal");
             }
-            double[,] kernel = CalculateNormalized1DSampleKernel(deviation);
+            double[,] kernel = CalculateNormalized1DSampleKernel(deviation); // Calculates the 1D kernal to be used for smoothing
             double[,] res1 = new double[matrix.GetLength(0), matrix.GetLength(1)];
             double[,] res2 = new double[matrix.GetLength(0), matrix.GetLength(1)];
-            //x-direction
+            //x-direction smoothing
             for (int i = 0; i < matrix.GetLength(0); i++)
             {
                 // Calculates each point in the x direction
                 for (int j = 0; j < matrix.GetLength(1); j++)
                     res1[i, j] = ProcessPoint(matrix, i, j, kernel, 0);
             }
-            //y-direction
+            //y-direction smoothing
             for (int i = 0; i < matrix.GetLength(0); i++)
             {
-                //Calculates each point in the y direction
+                //Calculates each point in the y direction from the x smoothed array res 1
                 for (int j = 0; j < matrix.GetLength(1); j++)
                     res2[i, j] = ProcessPoint(res1, i, j, kernel, 1);
             }
             return res2;
         }
         /// <summary>
-        /// 
+        /// Method to process each individual point of a given double[,] array 
         /// </summary>
-        /// <param name="matrix"></param>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        /// <param name="kernel"></param>
-        /// <param name="direction"></param>
+        /// <param name="matrix"> double[,] array meant to be processed</param>
+        /// <param name="x">x coordinate of the point being processed</param>
+        /// <param name="y">y coordinate of the point being processed</param>
+        /// <param name="kernel">Normalized 1D gaussian kernal</param>
+        /// <param name="direction">Direction to apply the gausian kernal to a given point 0 corresponds to x, 1 corresponds to y</param>
         /// <returns></returns>
         public static double ProcessPoint(double[,] matrix, int x, int y, double[,] kernel, int direction)
         {
