@@ -185,11 +185,19 @@ namespace TestFCWTAPI
                 (8, 8, 1),
                 (27, 8, -1),
                 (2, 43, 1),
-                (49, 49, 1)
+                (50, 50, 1)
             };
-            for(int i = 0; i < 50; i++)
+            var neighborArray = new (int, int)[]
             {
-                for (int j = 0; j < 50; j++)
+                (7, 8),
+                (26, 8),
+                (1, 43),
+                (49, 50)
+            };
+
+            for(int i = 0; i < 51; i++)
+            {
+                for (int j = 0; j < 51; j++)
                 {
                     for (int t = 0; t < 4; t++)
                         if (i == pointArray[t].Item1 && j == pointArray[t].Item2)
@@ -200,12 +208,71 @@ namespace TestFCWTAPI
                 
             }
             double[] valueArray = new double[4];
-            double[,] test1dKernal = GaussianSmoothing.CalculateNormalized1DSampleKernel(1);
+            double[] neighborValueArray = new double[4];
+            double testDeviation = 2;
+            int testSize = 7;
+            double[,] test1dKernal = GaussianSmoothing.CalculateNormalized1DSampleKernel(testDeviation);
+            double gaussPoint4 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(3 - testSize / 2) * (3 - testSize / 2) / (2 * testDeviation * testDeviation));
+            double gaussPoint3 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(2 - testSize / 2) * (2 - testSize / 2) / (2 * testDeviation * testDeviation));
             for (int p = 0; p < 4; p++)
             {
                 valueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, pointArray[p].Item1, pointArray[p].Item2, test1dKernal, 0);
+                neighborValueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, neighborArray[p].Item1, neighborArray[p].Item2, test1dKernal, 0);
+                if( p != 1)
+                {
+                    Assert.AreEqual(gaussPoint4, valueArray[p], 0.01);
+                    Assert.AreEqual(gaussPoint3, neighborValueArray[p], 0.01);
+                }
+                else
+                {
+                    Assert.AreEqual(gaussPoint4 * -1, valueArray[p], 0.01);
+                    Assert.AreEqual(gaussPoint3 * -1, neighborValueArray[p], 0.01);
+                }
+
             }
-            int numberOne = 1;
+        }
+        [Test]
+        public void TestGaussianConvolution()
+        {
+            double[,] invalid2DArray = new double[,]
+            {
+                {1, 2, 3, 4, 5 },
+                {4, 5, 6, 7, 8 },
+                {9, 10, 11, 12, 13 },
+            };
+            Assert.Throws<ArgumentException>(() => GaussianSmoothing.GaussianConvolution(invalid2DArray, 1));
+            double[,] test2DArray = new double[51, 51];
+            var pointArray = new (int, int, double)[]
+            {
+                (8, 8, 1),
+                (27, 8, -1),
+                (2, 43, 1),
+                (50, 50, 1)
+            };
+            var neighborArray = new (int, int)[]
+            {
+                (7, 8),
+                (26, 8),
+                (1, 43),
+                (49, 50)
+            };
+
+            for (int i = 0; i < 51; i++)
+            {
+                for (int j = 0; j < 51; j++)
+                {
+                    for (int t = 0; t < 4; t++)
+                        if (i == pointArray[t].Item1 && j == pointArray[t].Item2)
+                        {
+                            test2DArray[i, j] = pointArray[t].Item3;
+                        }
+                }
+
+            }
+            double testDeviation = 1;
+            double centerPoint = 1 / (2 * Math.PI * testDeviation);
+
+
         }
     }
 

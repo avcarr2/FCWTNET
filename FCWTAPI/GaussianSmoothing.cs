@@ -51,6 +51,10 @@ namespace FCWT.NET
         // x and y direction convolution are calculated separately
         public static double[,] GaussianConvolution(double[,] matrix, double deviation)
         {
+            if (matrix.GetLength(0) < (deviation * 6 + 1) || matrix.GetLength(1) < (deviation * 6 + 1))
+            {
+                throw new ArgumentException("Matrix may not be smaller than the convoluting gaussian kernal");
+            }
             double[,] kernel = CalculateNormalized1DSampleKernel(deviation);
             double[,] res1 = new double[matrix.GetLength(0), matrix.GetLength(1)];
             double[,] res2 = new double[matrix.GetLength(0), matrix.GetLength(1)];
@@ -70,17 +74,28 @@ namespace FCWT.NET
             }
             return res2;
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="matrix"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="kernel"></param>
+        /// <param name="direction"></param>
+        /// <returns></returns>
         public static double ProcessPoint(double[,] matrix, int x, int y, double[,] kernel, int direction)
         {
             double res = 0;
             int half = kernel.GetLength(0) / 2;
+
             for (int i = 0; i < kernel.GetLength(0); i++)
             {
-                int cox = direction == 0 ? x + i - half : x; // Set cox
-                int coy = direction == 1 ? y + i - half : y;
-                if (cox >= 0 && cox < matrix.GetLength(0) && coy >= 0 && coy < matrix.GetLength(1))
+                int cox = direction == 0 ? x + i - half : x; // Sets the x coordinate of the point being multiplied by the kernal to contribute to the final value of the point being processed
+                int coy = direction == 1 ? y + i - half : y; // Sets the y coordinate of the point being multiplied by the kernal to contribute to the final value of the point being processed
+                // The direction determines which direction the kernal is applied in for each point
+                if (cox >= 0 && cox < matrix.GetLength(0) && coy >= 0 && coy < matrix.GetLength(1)) // If the kernal extends beyond the matrix, those values are treated as zero leading to mild "darkening"
                 {
-                    res += matrix[cox, coy] * kernel[i, 0];
+                    res += matrix[cox, coy] * kernel[i, 0]; // Sums up the final value of the kernal
                 }
             }
             return res;
