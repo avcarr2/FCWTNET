@@ -1,5 +1,5 @@
 ﻿
-namespace FCWT.NET
+namespace FCWTNET
 {
     /// <summary>
     /// Code Derived from http://haishibai.blogspot.com/2009/09/image-processing-c-tutorial-4-gaussian.html

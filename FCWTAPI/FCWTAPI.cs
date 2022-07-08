@@ -1,5 +1,5 @@
 ﻿using System.Runtime.InteropServices; 
-namespace FCWT.NET
+namespace FCWTNET
 {
     public class FCWTAPI
     {
