@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using System;
-using FCWT.NET;
+using FCWTNET;
 using System.Linq; 
 
 
