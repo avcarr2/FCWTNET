@@ -212,6 +212,7 @@ namespace TestFCWTAPI
             double[,] testPhase = cosineCWT.PhaseCalculation();
             double testPoint = Math.Atan(imCWT[32, 32] / realCWT[32, 32]);
             Assert.AreEqual(testPoint, testPhase[32, 32], 0.001);
+        }
         [Test]
         public void TestCalculateSampleKernal()
         {
