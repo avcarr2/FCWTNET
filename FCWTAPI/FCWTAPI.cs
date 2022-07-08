@@ -117,6 +117,23 @@ namespace FCWTNET
             }
             return twodOutput;
         }
+        /// <summary>
+        /// Method to convert a float[,] array to a double[,] array
+        /// </summary>
+        /// <param name="inputArray">Input float[,]</param>
+        /// <returns></returns>
+        public static double[,] ConvertFloat2DtoDouble(float[,] inputArray)
+        {
+            double[,] outputArray = new double[inputArray.GetLength(0), inputArray.GetLength(1)];
+            for(int i = 0; i < inputArray.GetLength(0);i++)
+            {
+                for(int j = 0; j < inputArray.GetLength(1);j++)
+                {
+                    outputArray[i, j] = inputArray[i, j];
+                }
+            }
+            return outputArray;
+        }
 
         /// <summary>
         /// Used to split the imaginary and the real arrays when using a complex wavelet, i.e. the morlet. 
@@ -220,6 +237,7 @@ namespace FCWTNET
             }
             return modArray;
         }
+
         
 
     }
