@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FCWT.NET
+namespace FCWTNET
 {
     public static class FunctionGenerator
     {

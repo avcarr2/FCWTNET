@@ -1,5 +1,5 @@
 ﻿using System.Runtime.InteropServices; 
-namespace FCWT.NET
+namespace FCWTNET
 {
     public class FCWTAPI
     {
@@ -79,7 +79,15 @@ namespace FCWT.NET
             return fixedResults;
         }
 
+        
         //First element corresponds to the first jagged array dimension (voices), second element corresponds to the second dim (timepoints)
+        /// <summary>
+        /// Method to convert jagged 2D arrays to formal 2D arrays
+        /// In the context of CWT the first dimension represents voices and the second represents timepoints
+        /// </summary>
+        /// <param name="JaggedTwoD"></param>
+        /// <returns></returns>
+        /// <exception cref="IndexOutOfRangeException"></exception>
         public static float[,] ToTwoDArray(float[][] JaggedTwoD)
         {
 
