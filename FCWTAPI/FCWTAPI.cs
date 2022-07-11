@@ -78,8 +78,6 @@ namespace FCWTNET
             }
             return fixedResults;
         }
-
-        
         //First element corresponds to the first jagged array dimension (voices), second element corresponds to the second dim (timepoints)
         /// <summary>
         /// Method to convert jagged 2D arrays to formal 2D arrays
