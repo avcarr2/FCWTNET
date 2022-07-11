@@ -63,7 +63,7 @@ namespace FCWTNET
         /// <returns></returns>
         public static float[][] FixOutputArray(float[] array1D, int size, int noctave, int nvoice)
         {
-            // from the original fCWT library code 
+            // From the original fCWT library code 
             int numberRows = noctave * nvoice * 2; 
             // Creates the final with freq as higher dim
             float[][] fixedResults = new float[numberRows][];
@@ -80,32 +80,34 @@ namespace FCWTNET
         }
 
         
-        //First element corresponds to the first jagged array dimension (voices), second element corresponds to the second dim (timepoints)
         /// <summary>
-        /// Method to convert jagged 2D arrays to formal 2D arrays
-        /// In the context of CWT the first dimension represents voices and the second represents timepoints
+        /// Converts jagged 2D arrays to formal 2D arrays
+        /// The first dimension of the resulting 2D array corresponds to the voices
+        /// The second dimension corresponds to the time points of the input signal
         /// </summary>
-        /// <param name="JaggedTwoD"></param>
+        /// <param name="jaggedTwoD">2D jagged array to be converted</param>
         /// <returns></returns>
         /// <exception cref="IndexOutOfRangeException"></exception>
-        public static float[,] ToTwoDArray(float[][] JaggedTwoD)
+        public static float[,] ToTwoDArray(float[][] jaggedTwoD)
         {
 
-            int arrayCount = JaggedTwoD.Length;
-            int arrayLength = JaggedTwoD[0].Length;
+            int arrayCount = jaggedTwoD.Length;
+            int arrayLength = jaggedTwoD[0].Length;
             float[,] twodOutput = new float[arrayCount, arrayLength];
             for (int i = 0; i < arrayCount; i++)
             {
-                // If any array length is not equal to the previous sets arrayLength to a value which will throw an IndexOutOfRangeException
                 if(i > 0)
                 {
-                    if (JaggedTwoD[i].Length != JaggedTwoD[i - 1].Length) { arrayLength = JaggedTwoD[i].Length + 1; }
+                    if (jaggedTwoD[i].Length != jaggedTwoD[i - 1].Length)
+                    {
+                        arrayLength = jaggedTwoD[i].Length + 1;
+                    }
                 }
                 try
                 {
                     for (int j = 0; j < arrayLength; j++)
                     {
-                        twodOutput[i, j] = JaggedTwoD[i][j];
+                        twodOutput[i, j] = jaggedTwoD[i][j];
                     }
                 }
                 catch(IndexOutOfRangeException)
