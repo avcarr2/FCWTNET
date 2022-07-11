@@ -208,7 +208,7 @@ namespace TestFCWTAPI
             cosineCWT.PerformCWT();
             cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
             double[,] testPhase = cosineCWT.PhaseCalculation();
-            double testPoint = Math.Atan(realCwt[32, 32] / imagCwt[32, 32]);
+            double testPoint = Math.Atan(imagCwt[32, 32] / realCwt[32,32]);
             Assert.AreEqual(testPoint, testPhase[32, 32], 0.001);
         }
         [Test]
@@ -283,7 +283,7 @@ namespace TestFCWTAPI
 
             double[] valueArray = new double[4]; // Array to store transformed values of the pointArray points
             double[] neighborValueArray = new double[4]; // Array to store transformed values of the neighborArray points
-            double testDeviation = 1; //Deviation of the guassian used
+            double testDeviation = 1; //Deviation of the guassian used.
             int testSize = 7; // Size of the gaussian used
             // 1D gaussian kernel generated to test this
             double[,] test1dKernel = GaussianSmoothing.CalculateNormalized1DSampleKernel(testDeviation);
