@@ -53,37 +53,80 @@ namespace FCWTNET
         /// <returns name="outputArray">double[,] containing the desired component of the CWT</returns>
         /// <exception cref="ArgumentNullException">Throws an error if the CWT has not been preformed yet</exception>
         /// <exception cref="ArgumentException">Throws an error if there are an odd number of rows in OutputCWT</exception>
-        public double[,] SplitRealAndImaginary(bool real)
+        public void SplitRealAndImaginary(CWTComponent comp, out double[,]? realCwt, out double[,]? imagCwt)
         {
+            realCwt = null;
+            imagCwt = null; 
             if (OutputCWT == null)
             {
-                throw new ArgumentNullException("CWT must be preformed before preforming an operation on it");
+                throw new ArgumentNullException("CWT must be performed before performing an operation on it");
             }
-            if (OutputCWT.GetLength(0) % 2 != 0)
+            switch (comp)
             {
-                throw new ArgumentException("Cannot extract Real and Imaginary components from a non complex CWT");
+                case CWTComponent.Real:
+                    realCwt = GetComponent(CWTComponent.Real, OutputCWT); 
+                    break;
+                case CWTComponent.Imaginary:
+                    imagCwt = GetComponent(CWTComponent.Imaginary, OutputCWT);
+                    break;
+                case CWTComponent.Both:
+                    GetBothComponents(OutputCWT, out double[,] real, out double[,] imag);
+                    realCwt = real;
+                    imagCwt = imag; 
+                    break;
+                default:
+                    break;
             }
-            double[,] outputArray = new double[OutputCWT.GetLength(0) / 2, OutputCWT.GetLength(1)];
-            for (int i = 0; i < OutputCWT.GetLength(0); i++)
-            {
-                if (real && i % 2 == 0)
-                {
-                    for (int j = 0; j < OutputCWT.GetLength(1); j++)
-                    {
-                        outputArray[i / 2, j] = OutputCWT[i, j];
-                    }
-                }
-                else if (!real && i % 2 == 1)
-                {
-                    for (int j = 0; j < OutputCWT.GetLength(1); j++)
-                    {
-                        outputArray[(i - 1) / 2, j] = OutputCWT[i, j];
-                    }
-                }
-
-            }
-            return outputArray;
         }
+        private double[,] GetComponent(CWTComponent comp, double[,] originalArray)
+        {
+            int originalRowIndexer = 0;
+            int rowNumber = originalArray.GetLength(0); 
+            int colNumber = originalArray.GetLength(1);
+            double[,] outputArray = new double[rowNumber/2, colNumber]; 
+            if(comp == CWTComponent.Real)
+            {
+                originalRowIndexer = 0; 
+            }else if(comp == CWTComponent.Imaginary)
+            {
+                originalRowIndexer = 1; 
+            }else if(comp == CWTComponent.Both)
+            {
+                GetBothComponents(originalArray, out double[,] real, out double[,] imag); 
+            }
+
+            // iterate over the output array
+            for(int i = 0; i < rowNumber; i++)
+            {
+                for(int j = 0; j < colNumber; j++)
+                {
+                    outputArray[i, j] = originalArray[originalRowIndexer, j]; 
+                }
+                originalRowIndexer += 2; 
+            }
+            return outputArray; 
+        }
+        private void GetBothComponents(double[,] originalArray, out double[,] real, 
+            out double[,] imag)
+        {
+            int originalRowIndexer = 0;
+            int rowNumber = originalArray.GetLength(0);
+            int colNumber = originalArray.GetLength(1);
+            real = new double[rowNumber / 2, colNumber];
+            imag = new double[rowNumber / 2, colNumber];
+
+            for(int i = 0; i < real.GetLength(0) - 1; i++)
+            {
+                for(int j = 0; j < colNumber; j++)
+                {
+                    real[i, j] = originalArray[originalRowIndexer, j]; 
+                    imag[i, j] = originalArray[originalRowIndexer + 1, j]; 
+                }
+                originalRowIndexer += 2; 
+            }
+        }
+
+
         /// <summary>
         /// Method to calculate the modulus of the CWT
         /// </summary>
@@ -94,7 +137,7 @@ namespace FCWTNET
         {
             if (OutputCWT == null)
             {
-                throw new ArgumentNullException("CWT must be preformed before preforming an operation on it");
+                throw new ArgumentNullException("CWT must be performed before performing an operation on it");
             }
             if (OutputCWT.GetLength(0) % 2 != 0)
             {
@@ -128,17 +171,27 @@ namespace FCWTNET
             {
                 throw new ArgumentException("Cannot extract Real and Imaginary components from a non complex CWT");
             }
-            double[,] outputArray = new double[OutputCWT.GetLength(0) / 2, OutputCWT.GetLength(1)];
-            for (int i = 0; i < OutputCWT.GetLength(0) / 2; i++)
+            int originalIndex = 0;
+            int outputRowLength = OutputCWT.GetLength(0) / 2;
+            double[,] outputArray = new double[outputRowLength, OutputCWT.GetLength(1)];
+            for (int i = 0; i < outputRowLength - 1; i++)
             {
+                int realRowIndex = originalIndex;
+                int imagRowIndex = originalIndex + 1; 
                 for (int j = 0; j < OutputCWT.GetLength(1); j++)
                 {
-                    double realImRatio = OutputCWT[2 * i + 1, j] / OutputCWT[2 * i, j];
+                    double realImRatio = OutputCWT[imagRowIndex, j] / OutputCWT[realRowIndex, j];
                     outputArray[i, j] = Math.Atan(realImRatio);
                 }
-
+                originalIndex += 2; 
             }
             return outputArray;
+        }
+        public enum CWTComponent
+        {
+            Real, 
+            Imaginary, 
+            Both
         }
 
     }
