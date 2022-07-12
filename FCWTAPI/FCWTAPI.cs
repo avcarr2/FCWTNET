@@ -79,7 +79,8 @@ namespace FCWTNET
             return fixedResults;
         }
 
-        
+        //First element corresponds to the first jagged array dimension (voices), second element corresponds to the second dim (timepoints)
+
         /// <summary>
         /// Converts jagged 2D arrays to formal 2D arrays
         /// The first dimension of the resulting 2D array corresponds to the voices
