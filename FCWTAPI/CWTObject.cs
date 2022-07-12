@@ -37,7 +37,7 @@ namespace FCWTNET
             OutputCWT = null;
         }
         /// <summary>
-        /// Function to preform the calculation of the CWT and return it as a double[,] in the CWTObject class called OutputCWT
+        /// Function to perform the calculation of the CWT and return it as a double[,] in the CWTObject class called OutputCWT
         /// </summary>
         public void PerformCWT()
         {
