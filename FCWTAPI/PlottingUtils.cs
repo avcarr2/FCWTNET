@@ -17,14 +17,14 @@ namespace FCWTNET
         /// <returns></returns>
         public static double[,] GenerateGaussian()
         {
-            // Generate 1D normal distribution
+            // Generate 1D Gaussian distribution
             var singleData = new double[1000];
             for (int x = 0; x < 1000; ++x)
             {
                 singleData[x] = Math.Exp((-1.0 / 2.0) * Math.Pow(((double)x - 500.0) / 200, 2.0));
             }
 
-            // Generate 2D normal distribution
+            // Generate 2D Gaussian distribution
             var data = new double[1000, 1000];
             for (int x = 0; x < 1000; ++x)
             {
@@ -41,15 +41,15 @@ namespace FCWTNET
         /// Functionality will be added to scale axes with time and frequency info from CWT
         /// </summary>
         /// <param name="data"> Input double[,] to plot</param>
-        /// <param name="title">Plot title</param>
+        /// <param name="plotTitle">String containing the desired plot title</param>
         /// <returns></returns>
-        public static PlotModel GenerateHeatMap(double[,] data, string title)
+        public static PlotModel GenerateHeatMap(double[,] data, string plotTitle)
         {
             int x0 = 0;
             int x1 = data.GetLength(0) - 1;
             int y0 = 0;
             int y1 = data.GetLength(1) - 1;
-            var model = new PlotModel { Title = title };
+            var model = new PlotModel { Title = plotTitle };
             model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100)});
             model.Axes.Add(new LinearAxis 
             { 
@@ -64,7 +64,8 @@ namespace FCWTNET
                 Position = AxisPosition.Left, 
                 Title = "f_{0} (units)",
                 FontSize = 14,
-                TitleFontSize = 16
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
             });
             var hms = new HeatMapSeries
             {
@@ -85,16 +86,15 @@ namespace FCWTNET
         /// </summary>
         /// <param name="data"></param>
         /// <param name="rowIndices">int[] of rows to plot</param>
+        /// <param name="plotTitle"></param>
         /// the "rowIndices" parameter will likely change later to allow time point selection
         /// <param name="mode">Set the operation mode from the XYPlotOptions Enumerable</param>
         /// Composite averages a set of rows to create a single composite plot
-        /// Evolution plots all selected rows in the same plot
+        /// Evolution plots all selected rows in the same overlaid plot
         /// Single plots a single row
         /// <returns></returns>
-        /// <exception cref="ArgumentException"></exception>
-        public static PlotModel GenerateXYPlot(double[,] data, int[] rowIndices, XYPlotOptions mode)
+        public static PlotModel GenerateXYPlot(double[,] data, int[] rowIndices, string plotTitle, XYPlotOptions mode)
         {
-            string plotTitle = string.Format("{0} plot", mode.ToString());
             var plotModel = new PlotModel { Title = plotTitle };
             plotModel.Axes.Add(new LinearAxis 
             {
@@ -103,7 +103,8 @@ namespace FCWTNET
                 MaximumPadding = 0.05,
                 Title = "Time (units)",
                 FontSize = 14,
-                TitleFontSize = 16
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
             });
             plotModel.Axes.Add(new LinearAxis 
             { 
@@ -112,7 +113,8 @@ namespace FCWTNET
                 MaximumPadding = 0.05,
                 Title = "f_{0} (units)",
                 FontSize = 14,
-                TitleFontSize = 16
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
             });
             if(mode == XYPlotOptions.Composite)
             {
@@ -127,18 +129,19 @@ namespace FCWTNET
                         }
                     compSeries.Points.Add(new DataPoint(x, compValue));
                 }
-                compSeries.Title = string.Format("Composite from f0 = {0} to f0 = {1}", rowIndices[0].ToString(), rowIndices[rowIndices.Length -1]);
+                compSeries.Title = "Composite from f_{0} = " + rowIndices[0].ToString() + " to f_{0} = " + rowIndices[rowIndices.Length - 1].ToString();
                 plotModel.Series.Add(compSeries);
                 var legend = new OxyPlot.Legends.Legend
                 {
                     LegendPlacement = OxyPlot.Legends.LegendPlacement.Outside,
-                    LegendPosition = OxyPlot.Legends.LegendPosition.TopRight
+                    LegendPosition = OxyPlot.Legends.LegendPosition.TopRight,
+                    LegendFontSize = 14
                 };
                 plotModel.Legends.Add(legend);
 
                 return plotModel;
             }
-            else if(mode == XYPlotOptions.Evolution || mode == XYPlotOptions.Single)
+            else
             {
                 LineSeries[] lineSeriesArray = new LineSeries[rowIndices.Length];
                 for (int i = 0; i < rowIndices.Length; i++)
@@ -164,9 +167,29 @@ namespace FCWTNET
                 plotModel.Legends.Add(legend);
                 return plotModel;
             }
-            else
+        }
+        /// <summary>
+        /// Exports generated plots to PDF files
+        /// </summary>
+        /// <param name="plotModel">Plot to export</param>
+        /// <param name="fileName">Filename to export the plot to, must contain .pdf extension</param>
+        /// <param name="plotWidth">Width of the plot</param>
+        /// <param name="plotHeight">Height of the plot</param>
+        /// <exception cref="ArgumentException"></exception>
+        public static void ExportPlotPDF(PlotModel plotModel, string fileName, int plotWidth = 700, int plotHeight = 600)
+        {
+            if (fileName.Substring(fileName.Length - 4, 4) != ".pdf")
+                {
+                throw new ArgumentException("fileName must end in .pdf");
+                }
+            using (var exportStream = File.Create(fileName))
             {
-                throw new ArgumentException("Invalid operation mode entered");
+                var pdfExport = new PdfExporter
+                {
+                    Width = plotWidth,
+                    Height = plotHeight
+                };
+                pdfExport.Export(plotModel, exportStream);
             }
         }
         public enum XYPlotOptions
