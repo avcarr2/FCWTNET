@@ -93,9 +93,24 @@ namespace FCWTNET
         /// Evolution plots all selected rows in the same overlaid plot
         /// Single plots a single row
         /// <returns></returns>
-        public static PlotModel GenerateXYPlot(double[,] data, int[] rowIndices, string plotTitle, XYPlotOptions mode)
+        /// <exception cref="ArgumentNullException"></exception>
+        public static PlotModel GenerateXYPlot(double[,] data, int[] rowIndices, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
         {
-            var plotModel = new PlotModel { Title = plotTitle };
+            string actualTitle;
+            if (plotTitle == PlotTitles.Custom)
+            {
+                if (customTitle == null)
+                {
+                    throw new ArgumentNullException("customTitle", "If Custom plotTitle is used, a custom title must be entered");
+                }
+                else
+                {
+                    actualTitle = customTitle;
+                }
+
+            }
+            else { actualTitle = plotTitle.ToString() + " Plot"; }
+            var plotModel = new PlotModel { Title = actualTitle };
             plotModel.Axes.Add(new LinearAxis 
             {
                 Position = AxisPosition.Bottom,
@@ -197,6 +212,14 @@ namespace FCWTNET
             Composite, 
             Evolution, 
             Single
+        }
+        public enum PlotTitles
+        {
+            Composite,
+            Evolution,
+            Single,
+            Custom
+              
         }
     }
 }
