@@ -1,7 +1,10 @@
 using NUnit.Framework;
 using System;
 using FCWTNET;
-using System.Linq; 
+using System.Linq;
+using OxyPlot;
+using System.IO;
+using System.Text;
 
 
 namespace TestFCWTAPI
@@ -168,7 +171,7 @@ namespace TestFCWTAPI
             Assert.AreEqual(imagCwt[0, 5], cosineCWT.OutputCWT[1, 5]);
             Assert.AreEqual(realCwt[0, 21], cosineCWT.OutputCWT[0, 21]);
             CWTObject noCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            Assert.Throws<ArgumentNullException>(() => noCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, 
+            Assert.Throws<ArgumentNullException>(() => noCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both,
                 out double[,] real, out double[,] imag));
         }
         [Test]
@@ -189,7 +192,7 @@ namespace TestFCWTAPI
             cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
             double[,] testModulus = cosineCWT.ModulusCalculation();
             double testPoint = Math.Sqrt(realCwt[25, 25] * realCwt[25, 25] + imagCwt[25, 25] * imagCwt[25, 25]);
-            Assert.AreEqual(testPoint, testModulus[25,25], 0.001);
+            Assert.AreEqual(testPoint, testModulus[25, 25], 0.001);
         }
         [Test]
         public static void TestPhaseCalculaton() // Test to calculate the phase of the CWT in the CWTObject
@@ -217,7 +220,7 @@ namespace TestFCWTAPI
             double gaussDeviation = 1;
             int gaussSize = 7;
             int checkOne = 1;
-            double checkPoint1 = 1 / (Math.Sqrt(2 * Math.PI) * 1) * Math.Exp(-(checkOne - gaussSize/2) * (checkOne - gaussSize/2) / (2 * gaussDeviation * gaussDeviation));
+            double checkPoint1 = 1 / (Math.Sqrt(2 * Math.PI) * 1) * Math.Exp(-(checkOne - gaussSize / 2) * (checkOne - gaussSize / 2) / (2 * gaussDeviation * gaussDeviation));
             int checkTwo = 5;
             double checkPoint2 = 1 / (Math.Sqrt(2 * Math.PI) * 1) * Math.Exp(-(checkTwo - gaussSize / 2) * (checkTwo - gaussSize / 2) / (2 * gaussDeviation * gaussDeviation));
             double[,] deviationKernel = GaussianSmoothing.Calculate1DSampleKernel(gaussDeviation);
@@ -238,15 +241,15 @@ namespace TestFCWTAPI
             Assert.AreEqual(normalizedRatio1, unnormalizedRatio1, 0.001);
             Assert.AreEqual(normalizedRatio2, unnormalizedRatio2, 0.001);
             double normalizedSum = 0;
-            for(int i = 0; i < unnormalizedMatrix.GetLength(0); i++)
+            for (int i = 0; i < unnormalizedMatrix.GetLength(0); i++)
             {
-                for(int j = 0; j < unnormalizedMatrix.GetLength(1); j++)
+                for (int j = 0; j < unnormalizedMatrix.GetLength(1); j++)
                 {
                     normalizedSum = normalizedSum + normalizedMatrix[i, j];
                 }
             }
             Assert.AreEqual(normalizedSum, 1, 0.001);
-            
+
         }
         [Test]
         public void TestProcessPoint()
@@ -278,7 +281,7 @@ namespace TestFCWTAPI
                             test2DArray[i, j] = pointArray[t].Item3;
                         }
                 }
-                
+
             }
 
             double[] valueArray = new double[4]; // Array to store transformed values of the pointArray points
@@ -291,11 +294,11 @@ namespace TestFCWTAPI
             double gaussPoint4 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(3 - testSize / 2) * (3 - testSize / 2) / (2 * testDeviation * testDeviation));
 
             // Point 1 unit off center of the gaussian
-            double gaussPoint3 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(2 - testSize / 2) * (2 - testSize / 2) / (2 * testDeviation * testDeviation));             for (int p = 0; p < 4; p++) //Checks that all values from the Process point function are what they should be
+            double gaussPoint3 = 1 / (Math.Sqrt(2 * Math.PI) * testDeviation) * Math.Exp(-(2 - testSize / 2) * (2 - testSize / 2) / (2 * testDeviation * testDeviation)); for (int p = 0; p < 4; p++) //Checks that all values from the Process point function are what they should be
             {
                 valueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, pointArray[p].Item1, pointArray[p].Item2, test1dKernel, 0);
                 neighborValueArray[p] = GaussianSmoothing.ProcessPoint(test2DArray, neighborArray[p].Item1, neighborArray[p].Item2, test1dKernel, 0);
-                if( p != 1)
+                if (p != 1)
                 {
                     Assert.AreEqual(gaussPoint4, valueArray[p], 0.01);
                     Assert.AreEqual(gaussPoint3, neighborValueArray[p], 0.01);
@@ -356,7 +359,7 @@ namespace TestFCWTAPI
             double testDeviation = 1; // Deviation of our test 2d gaussian
             double centerPoint = 1 / (2 * Math.PI * testDeviation);
             double adjacentPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(-(1 * 1) / (2 * testDeviation * testDeviation)); // Calculates a point 1 off from the center of the 2d gaussian in any direction
-            double diagonalPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(- 2 / (2 * testDeviation * testDeviation)); // Calculates a point 1 off from the center in in x and y direction
+            double diagonalPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(-2 / (2 * testDeviation * testDeviation)); // Calculates a point 1 off from the center in in x and y direction
             double[,] testBlurredArray = GaussianSmoothing.GaussianConvolution(test2DArray, testDeviation); // Calculats the gaussian convolution of our test 2d gaussian with tesd2DArray
             for (int p = 0; p < 4; p++)
             {
@@ -368,8 +371,5 @@ namespace TestFCWTAPI
             // The unit test for this new function should include a module to ensure that the sum of the original array equals the sum of the blurred array
 
         }
-    }
-
-
-    
+    }  
 }
