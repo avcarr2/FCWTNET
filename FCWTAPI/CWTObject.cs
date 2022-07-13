@@ -51,7 +51,7 @@ namespace FCWTNET
         /// </summary>
         /// <param name="real">If true, returns the real component of the CWT. If false, returns the imaginary component</param>
         /// <returns name="outputArray">double[,] containing the desired component of the CWT</returns>
-        /// <exception cref="ArgumentNullException">Throws an error if the CWT has not been preformed yet</exception>
+        /// <exception cref="ArgumentNullException">Throws an error if the CWT has not been performed yet</exception>
         /// <exception cref="ArgumentException">Throws an error if there are an odd number of rows in OutputCWT</exception>
         public void SplitRealAndImaginary(CWTComponent comp, out double[,]? realCwt, out double[,]? imagCwt)
         {
@@ -94,8 +94,6 @@ namespace FCWTNET
             {
                 GetBothComponents(originalArray, out double[,] real, out double[,] imag); 
             }
-
-            // iterate over the output array
             for(int i = 0; i < rowNumber; i++)
             {
                 for(int j = 0; j < colNumber; j++)
@@ -137,20 +135,25 @@ namespace FCWTNET
         {
             if (OutputCWT == null)
             {
-                throw new ArgumentNullException("CWT must be performed before performing an operation on it");
+                throw new ArgumentNullException("CWT must be performed before operating on it");
             }
             if (OutputCWT.GetLength(0) % 2 != 0)
             {
                 throw new ArgumentException("Cannot extract Real and Imaginary components from a non complex CWT");
             }
-            double[,] outputArray = new double[OutputCWT.GetLength(0) / 2, OutputCWT.GetLength(1)];
-            for (int i = 0; i < OutputCWT.GetLength(0) / 2; i++)
+            int originalIndex = 0;
+            int outputRowLength = OutputCWT.GetLength(0) / 2;
+            double[,] outputArray = new double[outputRowLength, OutputCWT.GetLength(1)];
+            for (int i = 0; i < outputRowLength; i++)
             {
+                int realRowIndex = originalIndex;
+                int imagRowIndex = originalIndex + 1;
                 for (int j = 0; j < OutputCWT.GetLength(1); j++)
                 {
-                    double modPoint = Math.Sqrt(OutputCWT[2 * i, j] * OutputCWT[2 * i, j] + OutputCWT[2 * i + 1, j] * OutputCWT[2 * i + 1, j]);
+                    double modPoint = Math.Sqrt(OutputCWT[realRowIndex, j] * OutputCWT[realRowIndex, j] + OutputCWT[imagRowIndex, j] * OutputCWT[imagRowIndex, j]);
                     outputArray[i , j] = modPoint;
                 }
+                originalIndex += 2;
                 
             }
             return outputArray;
@@ -165,7 +168,7 @@ namespace FCWTNET
         {
             if (OutputCWT == null)
             {
-                throw new ArgumentNullException("CWT must be preformed before preforming an operation on it");
+                throw new ArgumentNullException("CWT must be performed before performing an operation on it");
             }
             if (OutputCWT.GetLength(0) % 2 != 0)
             {
