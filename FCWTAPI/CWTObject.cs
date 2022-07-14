@@ -30,7 +30,7 @@ namespace FCWTNET
             InputData = inputData;
             Psoctave = psoctave;
             Pendoctave = pendoctave;
-            this.Pnbvoice = pnbvoice;
+            Pnbvoice = pnbvoice;
             C0 = c0;
             Nthreads = nthreads;
             Use_Optimization_Schemes = use_optimization_schemes;
