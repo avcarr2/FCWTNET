@@ -9,17 +9,17 @@ namespace FCWTNET
 {
     public class TransientData
     {
-        public string Filepath { get; set; } 
-        public int? Samplingrate { get; private set; }
-        public double? Calibrationfactor { get; private set; }
+        public string FilePath { get; } 
+        public int? SamplingRate { get; private set; }
+        public double? CalibrationFactor { get; private set; }
  
         public double[]? Data { get; private set; }
 
         public TransientData(string filepath)
         {
-            Filepath = filepath;
-            Samplingrate = null;
-            Calibrationfactor = null;
+            FilePath = filepath;
+            SamplingRate = null;
+            CalibrationFactor = null;
             Data = null;
         }
         
@@ -32,14 +32,14 @@ namespace FCWTNET
         /// <exception cref="FileNotFoundException"></exception>
         public void ImportTransientData(int maxTimePoints = int.MaxValue - 4)
         {
-            if (Filepath.Substring(Filepath.Length - 4, 4) != ".csv")
+            if (Path.GetExtension(FilePath) != ".csv" )
             {
                 throw new ArgumentException("Input file must be a .csv file");
             }
             List<double> dataList = new List<double>();
             try
             {                
-                using (StreamReader dataReader = new StreamReader(Filepath))
+                using (StreamReader dataReader = new StreamReader(FilePath))
                 {
                     string line;
                     int LineCounter = 1;
@@ -58,11 +58,11 @@ namespace FCWTNET
                         }
                         if (LineCounter == 1)
                         {
-                            Calibrationfactor = currentNumber;                               
+                            CalibrationFactor = currentNumber;                               
                         }
                         else if (LineCounter == 2)
                         {
-                            Samplingrate = Convert.ToInt32(currentNumber);                            
+                            SamplingRate = Convert.ToInt32(currentNumber);                            
                         }
                         else
                         {
@@ -76,10 +76,8 @@ namespace FCWTNET
             catch(FileNotFoundException)
             {
                 throw new FileNotFoundException("Transient data file could not be found");
-            }
-            double[] dataArray = new double[dataList.Count];
-            dataArray = dataList.ToArray();
-            Data = dataArray;
+            }            
+            Data = dataList.ToArray();
         }
     }
 }

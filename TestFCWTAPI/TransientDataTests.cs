@@ -34,8 +34,8 @@ namespace TestFCWTAPI
             {
                 Assert.AreEqual(testPoints[i].Item2, testTransient.Data[testPoints[i].Item1], 0.1);
             }
-            Assert.AreEqual(testTransient.Samplingrate, 4000000);
-            Assert.AreEqual((double)testTransient.Calibrationfactor, 211751487582899.97, 0.01);
+            Assert.AreEqual(testTransient.SamplingRate, 4000000);
+            Assert.AreEqual((double)testTransient.CalibrationFactor, 211751487582899.97, 0.01);
             Assert.AreEqual(testTransient.Data.Length, testPointnum);
             TransientData nonexistantFile = new TransientData("notarealfile.csv");
             Assert.Throws<FileNotFoundException>(() => nonexistantFile.ImportTransientData());
