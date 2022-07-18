@@ -24,8 +24,13 @@ namespace FCWTNET
         public float C0 { get; }
         public int Nthreads { get; }
         public bool Use_Optimization_Schemes { get; }
+        public int? SamplingRate { get; }
+
         public double[,]? OutputCWT { get; private set; }
-        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
+        public double[]? FrequencyAxis { get; private set; }
+        public double[]? TimeAxis { get; private set; }
+
+        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, int? samplingRate = null)
         {
             InputData = inputData;
             Psoctave = psoctave;
@@ -34,7 +39,10 @@ namespace FCWTNET
             C0 = c0;
             Nthreads = nthreads;
             Use_Optimization_Schemes = use_optimization_schemes;
+            SamplingRate = samplingRate;
             OutputCWT = null;
+            FrequencyAxis = null;
+            TimeAxis = null;
         }
         /// <summary>
         /// Function to perform the calculation of the CWT and return it as a double[,] in the CWTObject class called OutputCWT
@@ -196,6 +204,40 @@ namespace FCWTNET
             Imaginary, 
             Both
         }
+        public void CalculateFrequencyAxis()
+        {
+            int octaveNum = Pendoctave - Psoctave;
+            double deltaA = 1 / Convert.ToDouble(Pnbvoice);
+            double[] freqArray = new double[octaveNum * Pnbvoice];
+            for (int i = 0 ; i < octaveNum * Pnbvoice; i++)
+            {
+                freqArray[i] = C0 / Math.Pow(2, (1 + (i + 1) * deltaA));
+            }
+            FrequencyAxis = freqArray;            
+        }
+        public void CalculateTimeAxis()
+        {
+            if(SamplingRate == null)
+            {
+                throw new ArgumentNullException("SamplingRate", "SamplingRate must be provided to calculate a time axis");
+            }
+            if (SamplingRate <= 0)
+            {
+                throw new ArgumentException("SamplingRate", "SamplingRate must be a positive, non-zero integer");
 
+            }
+            if(OutputCWT == null)
+            {
+                throw new ArgumentNullException("OutputCWT", "Output CWT must be calculated prior to calculating a time axis for it");
+            }
+            double [] timeArray = new double[OutputCWT.GetLength(1)];
+            double timeStep = 1 / (double)SamplingRate;
+            double currentTime = 0;
+            for (int i = 0; i < OutputCWT.GetLength(1); i++)
+            {
+                timeArray[i] = currentTime;
+                currentTime += timeStep;
+            }
+        }
     }
 }
