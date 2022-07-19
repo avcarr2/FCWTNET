@@ -47,9 +47,49 @@ namespace TestFCWTAPI
             PlottingUtils.ExportPlotPDF(testSinglePlot, "testsingle.pdf");
             PlottingUtils.ExportPlotPDF(testCustomTitle, "customtitle.pdf");
         }
-            
-    }
+        [Test]
+        public void TestGenerateCWTHeatMap()
+        {
+            double[,] testData = PlottingUtils.GenerateGaussian();
+            double[] timeAxis = new double[1000];
+            double[] freqAxis = new double[1000];
+            for (int i = 0; i < testData.GetLength(0); i++)
+            {
+                timeAxis[i] = (double)i * 2;
+                freqAxis[i] = Math.Pow(2, (double)i / 80);
+            }
+            var testHeatMap = PlottingUtils.GenerateCWTHeatMap(testData, "Test Heatmap", timeAxis, freqAxis);
+            PlottingUtils.ExportPlotPDF(testHeatMap, "testCWTheatmap.pdf");
+        }
+        [Test]
+        public void TestGenerateXYPlotCWT()
+        {
+            double[,] testData = PlottingUtils.GenerateGaussian();
+            int[] testMultiple = new int[] { 300, 400, 450, 500, 530, 620, 680 };
+            int[] testSingle = new int[] { 500 };
+            double[] timeAxis = new double[1000];
+            double[] freqAxis = new double[1000];
+            for (int i = 0; i < testData.GetLength(0); i++)
+            {
+                timeAxis[i] = (double)i * 2;
+                freqAxis[i] = Math.Pow(2, (double)i / 80);
+            }
+            var testCompositePlot = PlottingUtils.GenerateXYPlotCWT(testData, testMultiple, timeAxis, freqAxis, PlottingUtils.PlotTitles.Composite, PlottingUtils.XYPlotOptions.Composite);
+            var testEvolutionPlot = PlottingUtils.GenerateXYPlotCWT(testData, testMultiple, timeAxis, freqAxis, PlottingUtils.PlotTitles.Evolution, PlottingUtils.XYPlotOptions.Evolution);
+            var testSinglePlot = PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, freqAxis, PlottingUtils.PlotTitles.Single, PlottingUtils.XYPlotOptions.Evolution);
+            var testCustomTitle = PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, freqAxis, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single, "Custom Title");
+            Assert.Throws<ArgumentNullException>(() => PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, freqAxis, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single));
+            double[] badTimeAxis = new double[980];
+            double[] badFreqAxis = new double[980];
+            Assert.Throws<ArgumentException>(() => PlottingUtils.GenerateXYPlotCWT(testData, testSingle, badTimeAxis, freqAxis, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single));
+            Assert.Throws<ArgumentException>(() => PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, badFreqAxis, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single));
+            PlottingUtils.ExportPlotPDF(testCompositePlot, "testcompositeCWT.pdf");
+            PlottingUtils.ExportPlotPDF(testEvolutionPlot, "testevolutionCWT.pdf");
+            PlottingUtils.ExportPlotPDF(testSinglePlot, "testsingleCWT.pdf");
+            PlottingUtils.ExportPlotPDF(testCustomTitle, "customtitleCWT.pdf");
 
+        }
+    }
 
     
 }
