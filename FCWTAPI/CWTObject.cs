@@ -206,7 +206,7 @@ namespace FCWTNET
         }
         public void CalculateFrequencyAxis()
         {
-            int octaveNum = Pendoctave - Psoctave;
+            int octaveNum = 1 + Pendoctave - Psoctave;
             double deltaA = 1 / Convert.ToDouble(Pnbvoice);
             double[] freqArray = new double[octaveNum * Pnbvoice];
             for (int i = 0 ; i < octaveNum * Pnbvoice; i++)
@@ -238,6 +238,7 @@ namespace FCWTNET
                 timeArray[i] = currentTime;
                 currentTime += timeStep;
             }
+            TimeAxis = timeArray;
         }
     }
 }
