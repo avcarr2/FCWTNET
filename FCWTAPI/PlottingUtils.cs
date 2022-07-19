@@ -81,6 +81,50 @@ namespace FCWTNET
             return model;
         }
         /// <summary>
+        /// Creates a heat map plot from a 2D array with proper frequency and time axes
+        /// </summary>
+        /// <param name="data"> Input double[,] to plot</param>
+        /// <param name="plotTitle">String containing the desired plot title</param>
+        /// <param name="timeAxis">double[] containing CWT timepoints</param>
+        /// <param name="freqAxis">double[] containing CWT frequencies</param>
+        /// <returns></returns>
+        public static PlotModel GenerateCWTHeatMap(double[,] data, string plotTitle, double[] timeAxis, double[] freqAxis)
+        {
+            double x0 = timeAxis[0];
+            double x1 = timeAxis[^1];
+            double y0 = freqAxis[0];
+            double y1 = freqAxis[^1];
+            var model = new PlotModel { Title = plotTitle };
+            model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100) });
+            model.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Time (ms)",
+                FontSize = 14,
+                TitleFontSize = 16
+            });
+            model.Axes.Add(new LogarithmicAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "f_{0} (Hz)",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
+            });
+            var hms = new HeatMapSeries
+            {
+                X0 = x0,
+                X1 = x1,
+                Y0 = y0,
+                Y1 = y1,
+                Data = data,
+                RenderMethod = HeatMapRenderMethod.Bitmap                
+            };
+            model.Series.Add(hms);
+
+            return model;
+        }
+        /// <summary>
         /// Method to generate XY plots of individual, composite, or single rows of a 2D array
         /// Functionality to incorporate time and frequency information later will be added
         /// </summary>
@@ -101,7 +145,7 @@ namespace FCWTNET
             {
                 if (customTitle == null)
                 {
-                    throw new ArgumentNullException("customTitle", "If Custom plotTitle is used, a custom title must be entered");
+                    throw new ArgumentNullException("customTitle", "If a custom plotTitle is used, a custom title must be entered");
                 }
                 else
                 {
@@ -126,7 +170,7 @@ namespace FCWTNET
                 Position = AxisPosition.Left, 
                 MinimumPadding = 0.05, 
                 MaximumPadding = 0.05,
-                Title = "f_{0} (units)",
+                Title = "Intensity",
                 FontSize = 14,
                 TitleFontSize = 16,
                 AxisTitleDistance = 10
@@ -144,7 +188,8 @@ namespace FCWTNET
                         }
                     compSeries.Points.Add(new DataPoint(x, compValue));
                 }
-                compSeries.Title = "Composite from f_{0} = " + rowIndices[0].ToString() + " to f_{0} = " + rowIndices[rowIndices.Length - 1].ToString();
+                compSeries.Title = "Composite from f_{0} = " + rowIndices[0].ToString() + " to f_{0} = " + rowIndices[^1].ToString();
+                compSeries.Color = OxyColors.Black;
                 plotModel.Series.Add(compSeries);
                 var legend = new OxyPlot.Legends.Legend
                 {
@@ -180,6 +225,113 @@ namespace FCWTNET
                     LegendFontSize = 14,
                 };
                 plotModel.Legends.Add(legend);
+                if(mode == XYPlotOptions.Evolution)
+                {
+                    plotModel.DefaultColors = OxyPalettes.Rainbow(plotModel.Series.Count).Colors;
+                }
+                return plotModel;
+            }
+        }
+        public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, double[] timeArray, double[] freqArray, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
+        {
+            string actualTitle;
+            if (timeArray.Length != data.GetLength(1))
+            {
+                throw new ArgumentException("timeArray must have the same number of timepoints as the CWT", nameof(timeArray));
+            }
+            if (freqArray.Length != data.GetLength(0))
+            {
+                throw new ArgumentException("freqArray must have the same number of timepoints as the CWT", nameof(freqArray));
+            }
+            if (plotTitle == PlotTitles.Custom)
+            {
+                if (customTitle == null)
+                {
+                    throw new ArgumentNullException("If Custom plotTitle is used, a custom title must be entered", nameof(customTitle));
+                }
+                else
+                {
+                    actualTitle = customTitle;
+                }
+
+            }
+            else { actualTitle = plotTitle.ToString() + " Plot"; }
+            var plotModel = new PlotModel { Title = actualTitle };
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                MinimumPadding = 0.05,
+                MaximumPadding = 0.05,
+                Title = "Time (ms)",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10,
+                Minimum = timeArray[0],
+                Maximum = timeArray[^1],
+            });
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                MinimumPadding = 0.05,
+                MaximumPadding = 0.05,
+                Title = "Intensity",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
+            });
+            if (mode == XYPlotOptions.Composite)
+            {
+                var compSeries = new LineSeries();
+
+                for (int x = 0; x < data.GetLength(0); x++)
+                {
+                    double compValue = 0;
+                    for (int i = 0; i < rowIndices.Length; i++)
+                    {
+                        compValue += data[rowIndices[i], x];
+                    }
+                    compSeries.Points.Add(new DataPoint(timeArray[x], compValue));
+                }
+                compSeries.Title = "Composite from f_{0} = " + freqArray[rowIndices[0]].ToString("G3") + " to f_{0} = " + freqArray[rowIndices[rowIndices.Length - 1]].ToString("G3") + " Hz";
+                plotModel.Series.Add(compSeries);
+                compSeries.Color = OxyColors.Black;
+                var legend = new OxyPlot.Legends.Legend
+                {
+                    LegendPlacement = OxyPlot.Legends.LegendPlacement.Outside,
+                    LegendPosition = OxyPlot.Legends.LegendPosition.TopRight,
+                    LegendFontSize = 14
+                };
+                plotModel.Legends.Add(legend);
+                if(mode == XYPlotOptions.Evolution)
+                {
+                    plotModel.DefaultColors = OxyPalettes.Rainbow(plotModel.Series.Count).Colors;
+                }
+                return plotModel;
+            }
+            else
+            {
+                LineSeries[] lineSeriesArray = new LineSeries[rowIndices.Length];
+                for (int i = 0; i < rowIndices.Length; i++)
+                {
+                    var indivSer = new LineSeries();
+                    for (int x = 0; x < data.GetLength(0); x++)
+                    {
+                        indivSer.Points.Add(new DataPoint(timeArray[x], data[rowIndices[i], x]));
+                    }
+                    indivSer.Title = "f_{0} = " + freqArray[rowIndices[i]].ToString("G3") + " Hz";
+                    lineSeriesArray[i] = indivSer;
+                }
+                for (int i = 0; i < lineSeriesArray.Length; i++)
+                {
+                    plotModel.Series.Add(lineSeriesArray[i]);
+                }
+                var legend = new OxyPlot.Legends.Legend
+                {
+                    LegendPlacement = OxyPlot.Legends.LegendPlacement.Outside,
+                    LegendPosition = OxyPlot.Legends.LegendPosition.RightMiddle,
+                    LegendFontSize = 14,
+                };
+                plotModel.Legends.Add(legend);
                 return plotModel;
             }
         }
@@ -195,7 +347,7 @@ namespace FCWTNET
         {
             if (fileName.Substring(fileName.Length - 4, 4) != ".pdf")
                 {
-                throw new ArgumentException("fileName must end in .pdf");
+                throw new ArgumentException("fileName must end in .pdf", nameof(fileName));
                 }
             using (var exportStream = File.Create(fileName))
             {
