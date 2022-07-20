@@ -339,17 +339,17 @@ namespace FCWTNET
         /// Exports generated plots to PDF files
         /// </summary>
         /// <param name="plotModel">Plot to export</param>
-        /// <param name="fileName">Filename to export the plot to, must contain .pdf extension</param>
+        /// <param name="filePath">File path to export the plot to, must contain .pdf extension</param>
         /// <param name="plotWidth">Width of the plot</param>
         /// <param name="plotHeight">Height of the plot</param>
         /// <exception cref="ArgumentException"></exception>
-        public static void ExportPlotPDF(PlotModel plotModel, string fileName, int plotWidth = 700, int plotHeight = 600)
+        public static void ExportPlotPDF(PlotModel plotModel, string filePath, int plotWidth = 700, int plotHeight = 600)
         {
-            if (fileName.Substring(fileName.Length - 4, 4) != ".pdf")
+            if (Path.GetExtension(filePath) != ".pdf")
                 {
-                throw new ArgumentException("fileName must end in .pdf", nameof(fileName));
+                throw new ArgumentException("fileName must end in .pdf", nameof(filePath));
                 }
-            using (var exportStream = File.Create(fileName))
+            using (var exportStream = File.Create(filePath))
             {
                 var pdfExport = new PdfExporter
                 {

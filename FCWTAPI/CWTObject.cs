@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FCWTNET;
+using OxyPlot;
 
 namespace FCWTNET
 {
@@ -29,8 +30,9 @@ namespace FCWTNET
         public double[,]? OutputCWT { get; private set; }
         public double[]? FrequencyAxis { get; private set; }
         public double[]? TimeAxis { get; private set; }
+        public string? WorkingPath { get; }
 
-        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, int? samplingRate = null)
+        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, int? samplingRate = null, string? workingPath = null)
         {
             InputData = inputData;
             Psoctave = psoctave;
@@ -43,14 +45,22 @@ namespace FCWTNET
             OutputCWT = null;
             FrequencyAxis = null;
             TimeAxis = null;
+            WorkingPath = workingPath;
         }
         /// <summary>
         /// Function to perform the calculation of the CWT and return it as a double[,] in the CWTObject class called OutputCWT
+        /// Inverts the original CWT output
         /// </summary>
         public void PerformCWT()
         {
-            float[][] jaggedCWT = FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes);
-            float[,] floatCWT = FCWTAPI.ToTwoDArray(jaggedCWT);
+            float[][] rawJaggedCWT = FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes);
+            float[][] fixedJaggedCWT = new float[rawJaggedCWT.Length][];
+            // Inverts frequency axis to make working with OutputCWT more intuitive
+            for (int i = 1; i <= rawJaggedCWT.GetLength(0); i++)
+            {
+                fixedJaggedCWT[rawJaggedCWT.GetLength(0) - i] = rawJaggedCWT[i - 1];
+            }
+            float[,] floatCWT = FCWTAPI.ToTwoDArray(fixedJaggedCWT);
             OutputCWT = FCWTAPI.ConvertFloat2DtoDouble(floatCWT);
 
         }
@@ -64,7 +74,7 @@ namespace FCWTNET
         public void SplitRealAndImaginary(CWTComponent comp, out double[,]? realCwt, out double[,]? imagCwt)
         {
             realCwt = null;
-            imagCwt = null; 
+            imagCwt = null;
             if (OutputCWT == null)
             {
                 throw new ArgumentNullException("CWT must be performed before performing an operation on it");
@@ -72,7 +82,7 @@ namespace FCWTNET
             switch (comp)
             {
                 case CWTComponent.Real:
-                    realCwt = GetComponent(CWTComponent.Real, OutputCWT); 
+                    realCwt = GetComponent(CWTComponent.Real, OutputCWT);
                     break;
                 case CWTComponent.Imaginary:
                     imagCwt = GetComponent(CWTComponent.Imaginary, OutputCWT);
@@ -80,7 +90,7 @@ namespace FCWTNET
                 case CWTComponent.Both:
                     GetBothComponents(OutputCWT, out double[,] real, out double[,] imag);
                     realCwt = real;
-                    imagCwt = imag; 
+                    imagCwt = imag;
                     break;
                 default:
                     break;
@@ -89,30 +99,32 @@ namespace FCWTNET
         private double[,] GetComponent(CWTComponent comp, double[,] originalArray)
         {
             int originalRowIndexer = 0;
-            int rowNumber = originalArray.GetLength(0); 
+            int rowNumber = originalArray.GetLength(0);
             int colNumber = originalArray.GetLength(1);
-            double[,] outputArray = new double[rowNumber/2, colNumber]; 
-            if(comp == CWTComponent.Real)
+            double[,] outputArray = new double[rowNumber / 2, colNumber];
+            if (comp == CWTComponent.Real)
             {
-                originalRowIndexer = 0; 
-            }else if(comp == CWTComponent.Imaginary)
-            {
-                originalRowIndexer = 1; 
-            }else if(comp == CWTComponent.Both)
-            {
-                GetBothComponents(originalArray, out double[,] real, out double[,] imag); 
+                originalRowIndexer = 0;
             }
-            for(int i = 0; i < rowNumber; i++)
+            else if (comp == CWTComponent.Imaginary)
             {
-                for(int j = 0; j < colNumber; j++)
+                originalRowIndexer = 1;
+            }
+            else if (comp == CWTComponent.Both)
+            {
+                GetBothComponents(originalArray, out double[,] real, out double[,] imag);
+            }
+            for (int i = 0; i < rowNumber; i++)
+            {
+                for (int j = 0; j < colNumber; j++)
                 {
-                    outputArray[i, j] = originalArray[originalRowIndexer, j]; 
+                    outputArray[i, j] = originalArray[originalRowIndexer, j];
                 }
-                originalRowIndexer += 2; 
+                originalRowIndexer += 2;
             }
-            return outputArray; 
+            return outputArray;
         }
-        private void GetBothComponents(double[,] originalArray, out double[,] real, 
+        private void GetBothComponents(double[,] originalArray, out double[,] real,
             out double[,] imag)
         {
             int originalRowIndexer = 0;
@@ -121,14 +133,14 @@ namespace FCWTNET
             real = new double[rowNumber / 2, colNumber];
             imag = new double[rowNumber / 2, colNumber];
 
-            for(int i = 0; i < real.GetLength(0) - 1; i++)
+            for (int i = 0; i < real.GetLength(0) - 1; i++)
             {
-                for(int j = 0; j < colNumber; j++)
+                for (int j = 0; j < colNumber; j++)
                 {
-                    real[i, j] = originalArray[originalRowIndexer, j]; 
-                    imag[i, j] = originalArray[originalRowIndexer + 1, j]; 
+                    real[i, j] = originalArray[originalRowIndexer, j];
+                    imag[i, j] = originalArray[originalRowIndexer + 1, j];
                 }
-                originalRowIndexer += 2; 
+                originalRowIndexer += 2;
             }
         }
 
@@ -159,10 +171,10 @@ namespace FCWTNET
                 for (int j = 0; j < OutputCWT.GetLength(1); j++)
                 {
                     double modPoint = Math.Sqrt(OutputCWT[realRowIndex, j] * OutputCWT[realRowIndex, j] + OutputCWT[imagRowIndex, j] * OutputCWT[imagRowIndex, j]);
-                    outputArray[i , j] = modPoint;
+                    outputArray[i, j] = modPoint;
                 }
                 originalIndex += 2;
-                
+
             }
             return outputArray;
         }
@@ -188,36 +200,47 @@ namespace FCWTNET
             for (int i = 0; i < outputRowLength - 1; i++)
             {
                 int realRowIndex = originalIndex;
-                int imagRowIndex = originalIndex + 1; 
+                int imagRowIndex = originalIndex + 1;
                 for (int j = 0; j < OutputCWT.GetLength(1); j++)
                 {
                     double realImRatio = OutputCWT[imagRowIndex, j] / OutputCWT[realRowIndex, j];
                     outputArray[i, j] = Math.Atan(realImRatio);
                 }
-                originalIndex += 2; 
+                originalIndex += 2;
             }
             return outputArray;
         }
         public enum CWTComponent
         {
-            Real, 
-            Imaginary, 
+            Real,
+            Imaginary,
             Both
         }
+        /// <summary>
+        /// Generates an array corresponding to the characteristic frequencies of the analyzing wavelet
+        /// FrequencyAxis[0] corresponds to f for the analyzing wavelet at OutputCWT[0, ]
+        /// </summary>
         public void CalculateFrequencyAxis()
         {
             int octaveNum = 1 + Pendoctave - Psoctave;
             double deltaA = 1 / Convert.ToDouble(Pnbvoice);
             double[] freqArray = new double[octaveNum * Pnbvoice];
-            for (int i = 0 ; i < octaveNum * Pnbvoice; i++)
+            for (int i = 1; i <= octaveNum * Pnbvoice; i++)
             {
-                freqArray[i] = C0 / Math.Pow(2, (1 + (i + 1) * deltaA));
+                double divisor = Math.Pow(2, 1 + i * deltaA);
+                freqArray[octaveNum * Pnbvoice - i] = C0 / divisor;
             }
-            FrequencyAxis = freqArray;            
+            FrequencyAxis = freqArray;
         }
+        /// <summary>
+        /// Generates an array corresponding to the individual timepoints of the transient operated on by the CWT
+        /// Timepoints are given in milliseconds
+        /// </summary>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public void CalculateTimeAxis()
         {
-            if(SamplingRate == null)
+            if (SamplingRate == null)
             {
                 throw new ArgumentNullException("SamplingRate", "SamplingRate must be provided to calculate a time axis");
             }
@@ -226,12 +249,12 @@ namespace FCWTNET
                 throw new ArgumentException("SamplingRate", "SamplingRate must be a positive, non-zero integer");
 
             }
-            if(OutputCWT == null)
+            if (OutputCWT == null)
             {
                 throw new ArgumentNullException("OutputCWT", "Output CWT must be calculated prior to calculating a time axis for it");
             }
-            double [] timeArray = new double[OutputCWT.GetLength(1)];
-            double timeStep = 1 / (double)SamplingRate;
+            double[] timeArray = new double[OutputCWT.GetLength(1)];
+            double timeStep = 1000 / (double)SamplingRate;
             double currentTime = 0;
             for (int i = 0; i < OutputCWT.GetLength(1); i++)
             {
@@ -239,6 +262,160 @@ namespace FCWTNET
                 currentTime += timeStep;
             }
             TimeAxis = timeArray;
+
         }
+        public enum CWTFeatures
+        {
+            Imaginary,
+            Real,
+            Modulus,
+            Phase
+        }
+        public void GenerateHeatMap(CWTFeatures cwtFeature, string fileName, string? dataName = null)
+        {
+            if (TimeAxis == null)
+            {
+                throw new ArgumentNullException(nameof(TimeAxis), "TimeAxis cannot be null");
+
+            }
+            if (OutputCWT == null)
+            {
+                throw new ArgumentNullException(nameof(OutputCWT), "OutputCWT cannot be null");
+            }
+            if (FrequencyAxis == null)
+            {
+                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
+            }
+            if (Path.GetExtension(fileName) != ".pdf")
+            {
+                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+            }
+            double[,] data;
+            if (cwtFeature == CWTFeatures.Imaginary)
+            {
+                data = GetComponent(CWTComponent.Imaginary, OutputCWT);
+            }
+            else if (cwtFeature == CWTFeatures.Real)
+            {
+                data = GetComponent(CWTComponent.Real, OutputCWT);
+            }
+            else if (cwtFeature == CWTFeatures.Modulus)
+            {
+                data = ModulusCalculation();
+            }
+            else
+            {
+                data = PhaseCalculation();
+            }
+            string title;
+            if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
+            {
+                title = cwtFeature.ToString() + "Component Plot";
+            }
+            else
+            {
+                title = cwtFeature.ToString() + "Plot";
+            }
+            if (dataName != null)
+            {
+                title = dataName + title;
+            }
+            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(data, title, TimeAxis, FrequencyAxis);
+            string filePath = Path.Combine(WorkingPath, fileName);
+            PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
+        }
+        public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double? startFrequency, double? endFrequency, int? sampleNumber, string? dataName = null)
+        {
+            if (TimeAxis == null)
+            {
+                throw new ArgumentNullException(nameof(TimeAxis), "TimeAxis cannot be null");
+
+            }
+            if (OutputCWT == null)
+            {
+                throw new ArgumentNullException(nameof(OutputCWT), "OutputCWT cannot be null");
+            }
+            if (FrequencyAxis == null)
+            {
+                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
+            }
+            if (Path.GetExtension(fileName) != ".pdf")
+            {
+                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+            }
+
+
+        }
+        public (int, int) GetIndicesForFrequencyRange(double startFrequency, double endFrequency)
+        {
+            
+            if (FrequencyAxis == null)
+            {
+                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
+            }
+            if (FrequencyAxis[0] > startFrequency)
+            {
+                throw new ArgumentException(nameof(startFrequency), "startFrequency cannot be less than the minimum frequency");
+            }
+            if (startFrequency >= endFrequency)
+            {
+                throw new ArgumentException(nameof(endFrequency), "endFrequency must be greater than startFrequency");
+            }
+            if (FrequencyAxis[^1] < endFrequency)
+            {
+                throw new ArgumentException(nameof(endFrequency), "endFrequency must not be greater than the maximum CWT frequency");
+            }
+            if(FrequencyAxis[^2] <= startFrequency)
+            {
+                return (FrequencyAxis.Length - 2, FrequencyAxis.Length - 1);
+            }
+            //else
+            //{
+            //    int searchDivisor = 2;
+            //    int midIndex = (FrequencyAxis.Length + 1) / searchDivisor;                
+            //    while ((FrequencyAxis[midIndex] > startFrequency && FrequencyAxis[midIndex - 1] > startFrequency) || (FrequencyAxis[midIndex] < startFrequency && FrequencyAxis[midIndex + 1] < startFrequency))
+            //    {
+            //        searchDivisor = searchDivisor * 2;
+            //        if (FrequencyAxis[midIndex] > startFrequency && FrequencyAxis[midIndex - 1] > startFrequency)
+            //        {
+            //            midIndex =+ (FrequencyAxis.Length + 1) / searchDivisor;
+            //        }
+            //        else
+            //        {
+            //            midIndex = +(FrequencyAxis.Length + 1) / searchDivisor;
+            //        }
+            //    }
+            else
+            {
+                int rawStartIndex = Array.BinarySearch(FrequencyAxis, startFrequency);
+                double axisStartFrequency;
+                int axisStartIndex;
+                int positiveStartIndex;
+                if (rawStartIndex < 0)
+                {
+                    positiveStartIndex = rawStartIndex * -1 - 1;
+                }
+                else
+                {
+                    positiveStartIndex = rawStartIndex;
+                }
+
+                if (FrequencyAxis[positiveStartIndex] > startFrequency)
+                {
+                    axisStartIndex = positiveStartIndex - 1;
+                }
+                else
+                {
+                    axisStartIndex = positiveStartIndex;
+                }
+                axisStartFrequency = FrequencyAxis[positiveStartIndex];
+                double deltaA = 1 / Convert.ToDouble(Pnbvoice);
+                int numFreqs = Convert.ToInt32(Math.Ceiling(Math.Log2(endFrequency / axisStartFrequency) / deltaA));
+                int axisEndIndex = axisStartIndex + numFreqs;
+                return (axisStartIndex, axisEndIndex);
+                
+            }
+            
+        }           
     }
 }
