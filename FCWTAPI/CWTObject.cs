@@ -27,7 +27,7 @@ namespace FCWTNET
         public int? SamplingRate { get; }
 
         public double[,]? OutputCWT { get; private set; }
-        public double[]? FrequencyAxis { get; private set; }
+        public CWTFrequencies? FrequencyAxis { get; private set; }
         public double[]? TimeAxis { get; private set; }
 
         public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, int? samplingRate = null)
@@ -213,7 +213,7 @@ namespace FCWTNET
             {
                 freqArray[i] = C0 / Math.Pow(2, (1 + (i + 1) * deltaA));
             }
-            FrequencyAxis = freqArray;            
+            FrequencyAxis = new CWTFrequencies(freqArray);            
         }
         public void CalculateTimeAxis()
         {
