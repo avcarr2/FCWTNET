@@ -1,10 +1,7 @@
+using FCWTNET;
 using NUnit.Framework;
 using System;
-using FCWTNET;
-using System.Linq;
-using OxyPlot;
 using System.IO;
-using System.Text;
 
 
 namespace TestFCWTAPI
@@ -155,8 +152,29 @@ namespace TestFCWTAPI
             Assert.AreEqual(testZeroStart, (0, 57));
             Assert.AreEqual(testMiddleStart, (5, 57));
             Assert.AreEqual(testNearEndCase, (1198, 1199)); 
-            Assert.AreEqual(testAdjacentCase, (1196, 1197));
-            
+            Assert.AreEqual(testAdjacentCase, (1196, 1197));            
         }
+
+        [Test]
+        public void TestGenerateHeatMapCWTOject()
+        {
+            double[] testValues = new double[10000];
+            double constant = 100D / 1D * 2D * Math.PI;
+            for (int i = 0; i < 10000; i++)
+            {
+                double val = (double)i * constant;
+                testValues[i] = val;
+            }
+            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
+            string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
+            CWTObject cosCWT = new(cosine, 1, 20, 20, (float)(2000 * Math.PI), 4, false, 1000, testWorkingPath);
+            cosCWT.PerformCWT();
+            cosCWT.CalculateTimeAxis();
+            cosCWT.CalculateFrequencyAxis();
+            string testDataName = "TestCos";
+            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "testcosheatmap.pdf", testDataName);
+
+        }
+
     }  
 }

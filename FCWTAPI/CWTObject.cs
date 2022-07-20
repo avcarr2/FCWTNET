@@ -324,28 +324,59 @@ namespace FCWTNET
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
         }
-        public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double? startFrequency, double? endFrequency, int? sampleNumber, string? dataName = null)
-        {
-            if (TimeAxis == null)
-            {
-                throw new ArgumentNullException(nameof(TimeAxis), "TimeAxis cannot be null");
+        
+        // This method is not ready yet, but I want to talk to you about these before I go ahead and implement it.
+        //public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double? startFrequency, double? endFrequency, int? sampleNumber, string? dataName = null)
+        //{
+        //    if (TimeAxis == null)
+        //    {
+        //        throw new ArgumentNullException(nameof(TimeAxis), "TimeAxis cannot be null");
 
-            }
-            if (OutputCWT == null)
-            {
-                throw new ArgumentNullException(nameof(OutputCWT), "OutputCWT cannot be null");
-            }
-            if (FrequencyAxis == null)
-            {
-                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
-            }
-            if (Path.GetExtension(fileName) != ".pdf")
-            {
-                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
-            }
+        //    }
+        //    if (OutputCWT == null)
+        //    {
+        //        throw new ArgumentNullException(nameof(OutputCWT), "OutputCWT cannot be null");
+        //    }
+        //    if (FrequencyAxis == null)
+        //    {
+        //        throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
+        //    }
+        //    if (Path.GetExtension(fileName) != ".pdf")
+        //    {
+        //        throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+        //    }
+        //    double[,] data;
+        //    if (cwtFeature == CWTFeatures.Imaginary)
+        //    {
+        //        data = GetComponent(CWTComponent.Imaginary, OutputCWT);
+        //    }
+        //    else if (cwtFeature == CWTFeatures.Real)
+        //    {
+        //        data = GetComponent(CWTComponent.Real, OutputCWT);
+        //    }
+        //    else if (cwtFeature == CWTFeatures.Modulus)
+        //    {
+        //        data = ModulusCalculation();
+        //    }
+        //    else
+        //    {
+        //        data = PhaseCalculation();
+        //    }
+        //    string title;
+        //    if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
+        //    {
+        //        title = cwtFeature.ToString() +  "Component " + plotMode.ToString() + " Plot";
+        //    }
+        //    else
+        //    {
+        //        title = cwtFeature.ToString() + " " + plotMode.ToString() + " Plot";
+        //    }
+        //    if (dataName != null)
+        //    {
+        //        title = dataName + title;
+        //    }
 
-
-        }
+        //}
         public (int, int) GetIndicesForFrequencyRange(double startFrequency, double endFrequency)
         {
             
