@@ -2,7 +2,8 @@ using FCWTNET;
 using NUnit.Framework;
 using System;
 using System.IO;
-
+using System.Linq;
+using OxyPlot; 
 
 namespace TestFCWTAPI
 {
@@ -163,23 +164,50 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateHeatMapCWTOject()
         {
-            double[] testValues = new double[10000];
-            double constant = 1D / 100D * 2D * Math.PI;
-            for (int i = 0; i < 10000; i++)
-            {
-                double val = (double)i * constant;
-                testValues[i] = val;
-            }
-            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
+            double[] cosine = Enumerable.Range(1, 10000)
+                                        .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 257.2958))
+                                        .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
-            CWTObject cosCWT = new(cosine, 1, 16, 48, 5000f, 4, false, 1000, testWorkingPath);
+            CWTObject cosCWT = new(cosine, 1, 16, 48, 5000f, 4, false, 1000, workingPath: testWorkingPath);
             cosCWT.PerformCWT();
             cosCWT.CalculateTimeAxis();
             cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
-            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "testcos0.01heatmap5000pio1o16IM.pdf", testDataName);
-
+            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "testcos0.01heatmap5000pio1o16Mod.pdf", testDataName);
         }
+        [Test]
+        public void TestGenerateXYPlotCWTObject()
+        {
+            double[] cosine = Enumerable.Range(1, 10000)
+                                        .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 257.2958))
+                                        .ToArray();
+            string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
+            CWTObject cosCWT = new(cosine, 1, 16, 48, 5000f, 4, false, 1000, workingPath: testWorkingPath);
+            cosCWT.PerformCWT();
+            cosCWT.CalculateTimeAxis();
+            cosCWT.CalculateFrequencyAxis();
+            string testDataName = "TestCos";
+            cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.03815D, 1000D, 10, testDataName);
+        }
+        [Test]
+        public void TestCosine()
+        {
+            PlotModel pm = new PlotModel();
+            var line = new OxyPlot.Series.LineSeries();
+            double[] vals = Enumerable.Range(1, 10000)
+                .Select(i => FunctionGenerator.GenerateCosineWave((double)i/57.2958))
+                .ToArray();
+            double[] xaxis = Enumerable.Range(1, 10000).Select(i => (double)i).ToArray(); 
+            for(int i = 0; i < vals.Length; i++)
+            {
+                line.Points.Add(new DataPoint(xaxis[i], vals[i])); 
+            }
+            pm.Series.Add(line);
+            string writingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles", "CosinePlot.pdf");
+            PlottingUtils.ExportPlotPDF(pm, writingPath);
+            
+        }
+        
 
     }  
 }

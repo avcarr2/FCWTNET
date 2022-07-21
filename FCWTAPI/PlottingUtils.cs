@@ -314,7 +314,7 @@ namespace FCWTNET
                 for (int i = 0; i < rowIndices.Length; i++)
                 {
                     var indivSer = new LineSeries();
-                    for (int x = 0; x < data.GetLength(0); x++)
+                    for (int x = 0; x < data.GetLength(1); x++)
                     {
                         indivSer.Points.Add(new DataPoint(timeArray[x], data[rowIndices[i], x]));
                     }
