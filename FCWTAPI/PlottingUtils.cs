@@ -95,7 +95,7 @@ namespace FCWTNET
             double y0 = freqAxis[0];
             double y1 = freqAxis[^1];
             var model = new PlotModel { Title = plotTitle };
-            model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100) });
+            model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100), Position = AxisPosition.Right});
             model.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,

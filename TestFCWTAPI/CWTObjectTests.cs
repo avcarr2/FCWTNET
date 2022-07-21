@@ -46,6 +46,11 @@ namespace TestFCWTAPI
             cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
             Assert.AreEqual(imagCwt[0, 5], cosineCWT.OutputCWT[1, 5]);
             Assert.AreEqual(realCwt[0, 21], cosineCWT.OutputCWT[0, 21]);
+            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Imaginary, out double[,] imPlaceHolder, out double[,] imagOnlyCWT);
+            Assert.AreEqual(cosineCWT.OutputCWT[3, 5], imagOnlyCWT[1, 5]);
+            Assert.AreEqual(cosineCWT.OutputCWT[cosineCWT.OutputCWT.GetLength(0) - 1, 5], imagOnlyCWT[imagOnlyCWT.GetLength(0) - 1, 5]);
+            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Real, out double[,] realOnlyCWT, out double[,] rePlaceHolder);
+            Assert.AreEqual(cosineCWT.OutputCWT[cosineCWT.OutputCWT.GetLength(0) - 2, 5], realOnlyCWT[realOnlyCWT.GetLength(0) - 1, 5]);
             CWTObject noCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             Assert.Throws<ArgumentNullException>(() => noCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both,
                 out double[,] real, out double[,] imag));
@@ -159,7 +164,7 @@ namespace TestFCWTAPI
         public void TestGenerateHeatMapCWTOject()
         {
             double[] testValues = new double[10000];
-            double constant = 100D / 1D * 2D * Math.PI;
+            double constant = 1D / 100D * 2D * Math.PI;
             for (int i = 0; i < 10000; i++)
             {
                 double val = (double)i * constant;
@@ -167,12 +172,12 @@ namespace TestFCWTAPI
             }
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
-            CWTObject cosCWT = new(cosine, 1, 20, 20, (float)(2000 * Math.PI), 4, false, 1000, testWorkingPath);
+            CWTObject cosCWT = new(cosine, 1, 16, 48, 5000f, 4, false, 1000, testWorkingPath);
             cosCWT.PerformCWT();
             cosCWT.CalculateTimeAxis();
             cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
-            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "testcosheatmap.pdf", testDataName);
+            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "testcos0.01heatmap5000pio1o16IM.pdf", testDataName);
 
         }
 

@@ -114,7 +114,7 @@ namespace FCWTNET
             {
                 GetBothComponents(originalArray, out double[,] real, out double[,] imag);
             }
-            for (int i = 0; i < rowNumber; i++)
+            for (int i = 0; i < rowNumber / 2; i++)
             {
                 for (int j = 0; j < colNumber; j++)
                 {
@@ -227,7 +227,7 @@ namespace FCWTNET
             double[] freqArray = new double[octaveNum * Pnbvoice];
             for (int i = 1; i <= octaveNum * Pnbvoice; i++)
             {
-                double divisor = Math.Pow(2, 1 + i * deltaA);
+                double divisor = Math.Pow(2, Psoctave + i * deltaA);
                 freqArray[octaveNum * Pnbvoice - i] = C0 / divisor;
             }
             FrequencyAxis = freqArray;
