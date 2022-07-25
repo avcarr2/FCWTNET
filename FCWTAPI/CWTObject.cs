@@ -320,12 +320,22 @@ namespace FCWTNET
             {
                 title = dataName + title;
             }
-            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(data, title, TimeAxis, FrequencyAxis);
+            // Reflects data about the xy axis to plot CWT data with Freqeuncy in the y-axis and time in the x-axis
+            double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
+            for (int i = 0; i < data.GetLength(0); i++)
+            {
+                for (int j = 0; j < data.GetLength(1); j++)
+                {
+                    xyReflectedData[j, i] = data[i, j];
+                }
+            }
+            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, TimeAxis, FrequencyAxis);
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
         }
 
-        // This method is not ready yet, but I want to talk to you about these before I go ahead and implement it.
+        // This method currently only works to generate the evolution plot
+        // I plan to deal with the others after we figure out what the issue is with CWT
         public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double startFrequency, double endFrequency, int sampleNumber, string? dataName = null)
         {
             if (TimeAxis == null)
@@ -375,6 +385,7 @@ namespace FCWTNET
             {
                 title = dataName + title;
             }
+            
             if (plotMode == PlottingUtils.XYPlotOptions.Evolution)
             {
                 (int, int) freqIndices = GetIndicesForFrequencyRange(startFrequency, endFrequency);                
@@ -396,7 +407,15 @@ namespace FCWTNET
                         virtualLocation += stepSize;
                     }
                 }
-                PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(data, indFrequencies, TimeAxis, FrequencyAxis, PlottingUtils.PlotTitles.Custom, plotMode, title);
+                double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
+                for (int i = 0; i < data.GetLength(0); i++)
+                {
+                    for (int j = 0; j < data.GetLength(1); j++)
+                    {
+                        xyReflectedData[j, i] = data[i, j];
+                    }
+                }
+                PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, TimeAxis, FrequencyAxis, PlottingUtils.PlotTitles.Custom, plotMode, title);
                 string filePath = Path.Combine(WorkingPath, fileName);
                 PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
             }

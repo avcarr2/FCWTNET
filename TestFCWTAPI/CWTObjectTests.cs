@@ -73,8 +73,15 @@ namespace TestFCWTAPI
             cosineCWT.PerformCWT();
             cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
             double[,] testModulus = cosineCWT.ModulusCalculation();
-            double testPoint = Math.Sqrt(realCwt[25, 25] * realCwt[25, 25] + imagCwt[25, 25] * imagCwt[25, 25]);
-            Assert.AreEqual(testPoint, testModulus[25, 25], 0.001);
+            // Tests points in all 4 quadrants, none of which would remain at the same coordinates under reflection or rotation
+            double testPoint1 = Math.Sqrt(realCwt[10, 25] * realCwt[10, 25] + imagCwt[10, 25] * imagCwt[10, 25]);
+            double testPoint2 = Math.Sqrt(realCwt[60, 800] * realCwt[60, 800] + imagCwt[60, 800] * imagCwt[60, 800]);
+            double testPoint3 = Math.Sqrt(realCwt[900, 27] * realCwt[900, 27] + imagCwt[900, 27] * imagCwt[900, 27]);
+            double testPoint4 = Math.Sqrt(realCwt[900, 700] * realCwt[900, 700] + imagCwt[900, 700] * imagCwt[900, 700]);
+            Assert.AreEqual(testPoint1, testModulus[10, 25], 0.001);
+            Assert.AreEqual(testPoint2, testModulus[60, 800], 0.001);
+            Assert.AreEqual(testPoint3, testModulus[900, 27], 0.001);
+            Assert.AreEqual(testPoint4, testModulus[900, 700], 0.001);
         }
         [Test]
         public static void TestPhaseCalculaton()
@@ -93,8 +100,14 @@ namespace TestFCWTAPI
             cosineCWT.PerformCWT();
             cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
             double[,] testPhase = cosineCWT.PhaseCalculation();
-            double testPoint = Math.Atan(imagCwt[32, 32] / realCwt[32, 32]);
-            Assert.AreEqual(testPoint, testPhase[32, 32], 0.001);
+            double testPoint1 = Math.Atan(imagCwt[10, 25] / realCwt[10, 25]);
+            double testPoint2 = Math.Atan(imagCwt[60, 800] / realCwt[60, 800]);
+            double testPoint3 = Math.Atan(imagCwt[900, 27] / realCwt[900, 27]);
+            double testPoint4 = Math.Atan(imagCwt[900, 700] / realCwt[900, 700]);
+            Assert.AreEqual(testPoint1, testPhase[10, 25], 0.001);
+            Assert.AreEqual(testPoint2, testPhase[60, 800], 0.001);
+            Assert.AreEqual(testPoint3, testPhase[900, 27], 0.001);
+            Assert.AreEqual(testPoint4, testPhase[900, 700], 0.001);
         }
         [Test]
         public static void TestCalculateFrequencyAxis()
@@ -165,45 +178,45 @@ namespace TestFCWTAPI
         public void TestGenerateHeatMapCWTOject()
         {
             double[] cosine = Enumerable.Range(1, 10000)
-                                        .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 257.2958))
+                                        .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 57.2958))
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
-            CWTObject cosCWT = new(cosine, 1, 16, 48, 5000f, 4, false, 1000, workingPath: testWorkingPath);
+            CWTObject cosCWT = new(cosine, 1, 16, 48, 300F, 4, false, 1000, workingPath: testWorkingPath);
             cosCWT.PerformCWT();
             cosCWT.CalculateTimeAxis();
             cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
-            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "testcos0.01heatmap5000pio1o16Mod.pdf", testDataName);
+            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.pdf", testDataName);
         }
         [Test]
         public void TestGenerateXYPlotCWTObject()
         {
             double[] cosine = Enumerable.Range(1, 10000)
-                                        .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 257.2958))
+                                        .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 57.2958))
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
-            CWTObject cosCWT = new(cosine, 1, 16, 48, 5000f, 4, false, 1000, workingPath: testWorkingPath);
+            CWTObject cosCWT = new(cosine, 1, 16, 48, 300f, 4, false, 1000, workingPath: testWorkingPath);
             cosCWT.PerformCWT();
             cosCWT.CalculateTimeAxis();
             cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
-            cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.03815D, 1000D, 10, testDataName);
+            cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName);
         }
         [Test]
         public void TestCosine()
         {
             PlotModel pm = new PlotModel();
             var line = new OxyPlot.Series.LineSeries();
-            double[] vals = Enumerable.Range(1, 10000)
+            double[] vals = Enumerable.Range(1, 500)
                 .Select(i => FunctionGenerator.GenerateCosineWave((double)i/57.2958))
                 .ToArray();
-            double[] xaxis = Enumerable.Range(1, 10000).Select(i => (double)i).ToArray(); 
+            double[] xaxis = Enumerable.Range(1, 500).Select(i => (double)i).ToArray(); 
             for(int i = 0; i < vals.Length; i++)
             {
                 line.Points.Add(new DataPoint(xaxis[i], vals[i])); 
             }
             pm.Series.Add(line);
-            string writingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles", "CosinePlot.pdf");
+            string writingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles", "CosinePlotF2pi.pdf");
             PlottingUtils.ExportPlotPDF(pm, writingPath);
             
         }

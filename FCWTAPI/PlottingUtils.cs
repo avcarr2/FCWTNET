@@ -35,6 +35,50 @@ namespace FCWTNET
             }
             return data;
         }
+        /// <summary>
+        /// Generates a double[1000,1000] containing asymmetrical gaussian data
+        /// The first 400 x values are multiplied by 4 and the first 200 y values are multiplied by 3
+        /// This is used to check that plotting functions preserve data orientation
+        /// </summary>
+        /// <returns></returns>
+        public static double[,] GenerateAssymetricalGaussian()
+        {
+            // Generate 1D Gaussian distribution
+            var xsingleData = new double[1000];
+            var ysingleData = new double[1000];
+            for (int i = 0; i < 1000; ++i)
+            {
+                if(i < 400)
+                {
+                    xsingleData[i] = 4 * Math.Exp((-1.0 / 2.0) * Math.Pow(((double)i - 500.0) / 200, 2.0));
+                }
+                else
+                {
+                    xsingleData[i] = Math.Exp((-1.0 / 2.0) * Math.Pow(((double)i - 500.0) / 200, 2.0));
+                }
+                if (i < 200)
+                {
+                    ysingleData[i] = 3 * Math.Exp((-1.0 / 2.0) * Math.Pow(((double)i - 500.0) / 200, 2.0));
+                }
+                else
+                {
+                    ysingleData[i] = Math.Exp((-1.0 / 2.0) * Math.Pow(((double)i - 500.0) / 200, 2.0));
+                }
+                    
+
+            }
+
+            // Generate 2D Gaussian distribution
+            var data = new double[1000, 1000];
+            for (int x = 0; x < 1000; ++x)
+            {
+                for (int y = 0; y < 1000; ++y)
+                {
+                    data[x, y] = xsingleData[x] * ysingleData[y] * 1000;
+                }
+            }
+            return data;
+        }
 
         /// <summary>
         /// Creates a heat map plot from a 2D array
@@ -125,6 +169,43 @@ namespace FCWTNET
             return model;
         }
         /// <summary>
+        /// Creates a contour plot from a 2D array with proper frequency and time axis
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="plotTitle"></param>
+        /// <param name="timeAxis"></param>
+        /// <param name="freqAxis"></param>
+        /// <returns></returns>
+        public static PlotModel GenerateCWTContourPlot(double[,] data, string plotTitle, double[] timeAxis, double[] freqAxis)
+        {
+
+            var model = new PlotModel { Title = plotTitle };
+            model.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Time (ms)",
+                FontSize = 14,
+                TitleFontSize = 16
+            });
+            model.Axes.Add(new LogarithmicAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "f_{0} (Hz)",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
+            });
+            var contourSeries = new ContourSeries
+            {
+                ColumnCoordinates = timeAxis,
+                RowCoordinates = freqAxis,
+                Data = data,
+            };
+            model.Series.Add(contourSeries);
+
+            return model;
+        }
+        /// <summary>
         /// Method to generate XY plots of individual, composite, or single rows of a 2D array
         /// Functionality to incorporate time and frequency information later will be added
         /// </summary>
@@ -209,7 +290,7 @@ namespace FCWTNET
                     var indivSer = new LineSeries();
                     for (int x = 0; x < data.GetLength(0); x++)
                     {
-                        indivSer.Points.Add(new DataPoint(x, data[rowIndices[i], x]));
+                        indivSer.Points.Add(new DataPoint(x, data[x, rowIndices[i]]));
                     }
                     indivSer.Title = "f_{0} = " + rowIndices[i].ToString();
                     lineSeriesArray[i] = indivSer;
@@ -235,11 +316,11 @@ namespace FCWTNET
         public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, double[] timeArray, double[] freqArray, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
         {
             string actualTitle;
-            if (timeArray.Length != data.GetLength(1))
+            if (timeArray.Length != data.GetLength(0))
             {
                 throw new ArgumentException("timeArray must have the same number of timepoints as the CWT", nameof(timeArray));
             }
-            if (freqArray.Length != data.GetLength(0))
+            if (freqArray.Length != data.GetLength(1))
             {
                 throw new ArgumentException("freqArray must have the same number of timepoints as the CWT", nameof(freqArray));
             }
@@ -288,7 +369,7 @@ namespace FCWTNET
                     double compValue = 0;
                     for (int i = 0; i < rowIndices.Length; i++)
                     {
-                        compValue += data[rowIndices[i], x];
+                        compValue += data[x, rowIndices[i]];
                     }
                     compSeries.Points.Add(new DataPoint(timeArray[x], compValue));
                 }
@@ -314,9 +395,9 @@ namespace FCWTNET
                 for (int i = 0; i < rowIndices.Length; i++)
                 {
                     var indivSer = new LineSeries();
-                    for (int x = 0; x < data.GetLength(1); x++)
+                    for (int x = 0; x < data.GetLength(0); x++)
                     {
-                        indivSer.Points.Add(new DataPoint(timeArray[x], data[rowIndices[i], x]));
+                        indivSer.Points.Add(new DataPoint(timeArray[x], data[x, rowIndices[i]]));
                     }
                     indivSer.Title = "f_{0} = " + freqArray[rowIndices[i]].ToString("G3") + " Hz";
                     lineSeriesArray[i] = indivSer;
