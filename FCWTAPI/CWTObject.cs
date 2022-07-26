@@ -271,6 +271,14 @@ namespace FCWTNET
             Modulus,
             Phase
         }
+        /// <summary>
+        /// Generates a heatmap of a paticular CWT Feature
+        /// </summary>
+        /// <param name="cwtFeature">Enumerable to select whether the Modulus, Phase, Real or Imaginary component of CWT should be plotted</param>
+        /// <param name="fileName">File to write the resulting plot to</param>
+        /// <param name="dataName">Optional name of the data to pass into the title of the plot</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public void GenerateHeatMap(CWTFeatures cwtFeature, string fileName, string? dataName = null)
         {
             if (TimeAxis == null)
@@ -282,9 +290,9 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(OutputCWT), "OutputCWT cannot be null");
             }
-            if (FrequencyAxis == null)
+            if (FrequencyAxis.WaveletCenterFrequencies == null)
             {
-                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
+                throw new ArgumentNullException(nameof(FrequencyAxis.WaveletCenterFrequencies), "FrequencyAxis cannot be null");
             }
             if (Path.GetExtension(fileName) != ".pdf")
             {
@@ -329,7 +337,7 @@ namespace FCWTNET
                     xyReflectedData[j, i] = data[i, j];
                 }
             }
-            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, TimeAxis, FrequencyAxis);
+            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, TimeAxis, FrequencyAxis.WaveletCenterFrequencies);
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
         }
@@ -347,7 +355,7 @@ namespace FCWTNET
         /// <param name="dataName">Name of the data to enter</param>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
-        public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double startFrequency, double? endFrequency, int? sampleNumber, string? dataName = null)
+        public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double startFrequency, double? endFrequency = null, int? sampleNumber = null, string? dataName = null)
         {
             if (TimeAxis == null)
             {
@@ -440,7 +448,9 @@ namespace FCWTNET
             }
             else
             {
-                indFrequencies = new int[] {Array.BinarySearch(FrequencyAxis, startFrequency)};
+                int rawFrequencyIndex = Array.BinarySearch(FrequencyAxis.WaveletCenterFrequencies, startFrequency);
+                int frequencyIndex = rawFrequencyIndex < 0 ? -rawFrequencyIndex + 1 : rawFrequencyIndex;
+                indFrequencies = new int[] {frequencyIndex};
             }
             double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
             for (int i = 0; i < data.GetLength(0); i++)
@@ -450,12 +460,13 @@ namespace FCWTNET
                     xyReflectedData[j, i] = data[i, j];
                 }
             }
-            PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, TimeAxis, FrequencyAxis, PlottingUtils.PlotTitles.Custom, plotMode, title);
+            PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, TimeAxis, FrequencyAxis.WaveletCenterFrequencies, PlottingUtils.PlotTitles.Custom, plotMode, title);
 
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
 
         }
+        // This is a temporary method, I want to get all of the plotting stuff integrated first, and then I will work on moving this to CWTFrequencies.
         public (int, int) GetIndicesForFrequencyRange(double startFrequency, double endFrequency)
         {
             
@@ -463,7 +474,7 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
             }
-            if (FrequencyAxis[0] > startFrequency)
+            if (FrequencyAxis.WaveletCenterFrequencies[0] > startFrequency)
             {
                 throw new ArgumentException(nameof(startFrequency), "startFrequency cannot be less than the minimum frequency");
             }
@@ -471,33 +482,17 @@ namespace FCWTNET
             {
                 throw new ArgumentException(nameof(endFrequency), "endFrequency must be greater than startFrequency");
             }
-            if (FrequencyAxis[^1] < endFrequency)
+            if (FrequencyAxis.WaveletCenterFrequencies[^1] < endFrequency)
             {
                 throw new ArgumentException(nameof(endFrequency), "endFrequency must not be greater than the maximum CWT frequency");
             }
-            if(FrequencyAxis[^2] <= startFrequency)
+            if(FrequencyAxis.WaveletCenterFrequencies[^2] <= startFrequency)
             {
                 return (FrequencyAxis.Length - 2, FrequencyAxis.Length - 1);
             }
-            //else
-            //{
-            //    int searchDivisor = 2;
-            //    int midIndex = (FrequencyAxis.Length + 1) / searchDivisor;                
-            //    while ((FrequencyAxis[midIndex] > startFrequency && FrequencyAxis[midIndex - 1] > startFrequency) || (FrequencyAxis[midIndex] < startFrequency && FrequencyAxis[midIndex + 1] < startFrequency))
-            //    {
-            //        searchDivisor = searchDivisor * 2;
-            //        if (FrequencyAxis[midIndex] > startFrequency && FrequencyAxis[midIndex - 1] > startFrequency)
-            //        {
-            //            midIndex =+ (FrequencyAxis.Length + 1) / searchDivisor;
-            //        }
-            //        else
-            //        {
-            //            midIndex = +(FrequencyAxis.Length + 1) / searchDivisor;
-            //        }
-            //    }
             else
             {
-                int rawStartIndex = Array.BinarySearch(FrequencyAxis, startFrequency);
+                int rawStartIndex = Array.BinarySearch(FrequencyAxis.WaveletCenterFrequencies, startFrequency);
                 double axisStartFrequency;
                 int axisStartIndex;
                 int positiveStartIndex;
@@ -510,7 +505,7 @@ namespace FCWTNET
                     positiveStartIndex = rawStartIndex;
                 }
 
-                if (FrequencyAxis[positiveStartIndex] > startFrequency)
+                if (FrequencyAxis.WaveletCenterFrequencies[positiveStartIndex] > startFrequency)
                 {
                     axisStartIndex = positiveStartIndex - 1;
                 }
@@ -518,7 +513,7 @@ namespace FCWTNET
                 {
                     axisStartIndex = positiveStartIndex;
                 }
-                axisStartFrequency = FrequencyAxis[positiveStartIndex];
+                axisStartFrequency = FrequencyAxis.WaveletCenterFrequencies[positiveStartIndex];
                 double deltaA = 1 / Convert.ToDouble(Pnbvoice);
                 int numFreqs = Convert.ToInt32(Math.Ceiling(Math.Log2(endFrequency / axisStartFrequency) / deltaA));
                 int axisEndIndex = axisStartIndex + numFreqs;

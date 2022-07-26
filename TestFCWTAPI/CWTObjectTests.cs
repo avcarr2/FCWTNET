@@ -123,8 +123,8 @@ namespace TestFCWTAPI
             CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             cosCWT.CalculateFrequencyAxis();
             cosCWT.PerformCWT();
-            Assert.AreEqual(cosCWT.FrequencyAxis[^5], (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
-            Assert.AreEqual(cosCWT.FrequencyAxis[0], (2 * Math.PI) / Math.Pow(2, 7), 0.00001);
+            Assert.AreEqual(cosCWT.FrequencyAxis.WaveletCenterFrequencies[^5], (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
+            Assert.AreEqual(cosCWT.FrequencyAxis.WaveletCenterFrequencies[0], (2 * Math.PI) / Math.Pow(2, 7), 0.00001);
             Assert.AreEqual(cosCWT.OutputCWT.GetLength(0) / 2, cosCWT.FrequencyAxis.Length);
         }
         [Test]
@@ -176,7 +176,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateHeatMapCWTOject()
         {
-            double[] cosine = Enumerable.Range(1, 10000)
+            double[] cosine = Enumerable.Range(1, 1000)
                                         .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 57.2958))
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
@@ -190,7 +190,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateXYPlotCWTObject()
         {
-            double[] cosine = Enumerable.Range(1, 10000)
+            double[] cosine = Enumerable.Range(1, 1000)
                                         .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 57.2958))
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
@@ -200,6 +200,9 @@ namespace TestFCWTAPI
             cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
             cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName);
+            cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTComposite.pdf", PlottingUtils.XYPlotOptions.Composite, 0.09D, 100D, 10, testDataName);
+            cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTSingle.pdf", PlottingUtils.XYPlotOptions.Single, 0.09D);
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D));
         }
         [Test]
         public void TestCosine()
