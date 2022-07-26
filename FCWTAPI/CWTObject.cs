@@ -28,7 +28,7 @@ namespace FCWTNET
         public int? SamplingRate { get; }
 
         public double[,]? OutputCWT { get; private set; }
-        public double[]? FrequencyAxis { get; private set; }
+        public CWTFrequencies? FrequencyAxis { get; private set; }
         public double[]? TimeAxis { get; private set; }
         public string? WorkingPath { get; }
 
@@ -230,7 +230,7 @@ namespace FCWTNET
                 double divisor = Math.Pow(2, Psoctave + i * deltaA);
                 freqArray[octaveNum * Pnbvoice - i] = C0 / divisor;
             }
-            FrequencyAxis = freqArray;
+            FrequencyAxis = new CWTFrequencies(freqArray);            
         }
         /// <summary>
         /// Generates an array corresponding to the individual timepoints of the transient operated on by the CWT

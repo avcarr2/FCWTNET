@@ -126,7 +126,6 @@ namespace TestFCWTAPI
             Assert.AreEqual(cosCWT.FrequencyAxis[^5], (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
             Assert.AreEqual(cosCWT.FrequencyAxis[0], (2 * Math.PI) / Math.Pow(2, 7), 0.00001);
             Assert.AreEqual(cosCWT.OutputCWT.GetLength(0) / 2, cosCWT.FrequencyAxis.Length);
-
         }
         [Test]
         public static void TestCalculateTimeAxis()
