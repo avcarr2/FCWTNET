@@ -26,7 +26,7 @@ namespace FCWTNET
         public bool Use_Optimization_Schemes { get; }
         public int? SamplingRate { get; }
 
-        public double[,]? OutputCWT { get; private set; }
+        public CWTOutput? OutputCWT { get; private set; }
         public CWTFrequencies? FrequencyAxis { get; private set; }
         public double[]? TimeAxis { get; private set; }
 
@@ -49,9 +49,9 @@ namespace FCWTNET
         /// </summary>
         public void PerformCWT()
         {
-            float[][] jaggedCWT = FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes);
-            float[,] floatCWT = FCWTAPI.ToTwoDArray(jaggedCWT);
-            OutputCWT = FCWTAPI.ConvertFloat2DtoDouble(floatCWT);
+            FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes, 
+                out double[][] real, out double[][] imag);
+            OutputCWT = new(real, imag); 
 
         }
         /// <summary>
@@ -72,10 +72,10 @@ namespace FCWTNET
             switch (comp)
             {
                 case CWTComponent.Real:
-                    realCwt = GetComponent(CWTComponent.Real, OutputCWT); 
+                    realCwt = OutputCWT.RealArray; 
                     break;
                 case CWTComponent.Imaginary:
-                    imagCwt = GetComponent(CWTComponent.Imaginary, OutputCWT);
+                    imagCwt = OutputCWT.ImagArray;  ;
                     break;
                 case CWTComponent.Both:
                     GetBothComponents(OutputCWT, out double[,] real, out double[,] imag);
@@ -84,6 +84,20 @@ namespace FCWTNET
                     break;
                 default:
                     break;
+            }
+        }
+        public double[,]? GetComponent(CWTComponent comp, CWTOutput cwtOutput)
+        {
+            switch (comp)
+            {
+                case CWTComponent.Real:
+                    return cwtOutput.RealArray; 
+                case CWTComponent.Imaginary:
+                    return cwtOutput.ImagArray; 
+                case CWTComponent.Both:
+                    throw new NotImplementedException("CWTComponent.Both not implemented for this overload."); 
+                default:
+                    return null;
             }
         }
         private double[,] GetComponent(CWTComponent comp, double[,] originalArray)
@@ -131,6 +145,12 @@ namespace FCWTNET
                 originalRowIndexer += 2; 
             }
         }
+        private void GetBothComponents(CWTOutput output, out double[,] real, 
+            out double[,] imag)
+        {
+            real = output.RealArray;
+            imag = output.ImagArray; 
+        }
 
 
         /// <summary>
@@ -145,26 +165,17 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException("CWT must be performed before operating on it");
             }
-            if (OutputCWT.GetLength(0) % 2 != 0)
+            int rows = OutputCWT.RealArray.GetLength(0);
+            int cols = OutputCWT.ImagArray.GetLength(1); 
+            double[,] output = new double[rows, cols]; 
+            for(int i = 0; i < rows; i++)
             {
-                throw new ArgumentException("Cannot extract Real and Imaginary components from a non complex CWT");
-            }
-            int originalIndex = 0;
-            int outputRowLength = OutputCWT.GetLength(0) / 2;
-            double[,] outputArray = new double[outputRowLength, OutputCWT.GetLength(1)];
-            for (int i = 0; i < outputRowLength; i++)
-            {
-                int realRowIndex = originalIndex;
-                int imagRowIndex = originalIndex + 1;
-                for (int j = 0; j < OutputCWT.GetLength(1); j++)
+                for(int j = 0; j < cols; j++)
                 {
-                    double modPoint = Math.Sqrt(OutputCWT[realRowIndex, j] * OutputCWT[realRowIndex, j] + OutputCWT[imagRowIndex, j] * OutputCWT[imagRowIndex, j]);
-                    outputArray[i , j] = modPoint;
+                    output[i, j] = Math.Sqrt(Math.Pow(OutputCWT.RealArray[i, j], 2) + Math.Pow(OutputCWT.ImagArray[i, j], 2)); 
                 }
-                originalIndex += 2;
-                
             }
-            return outputArray;
+            return output;
         }
         /// <summary>
         /// Method to calculate the phase of the CWT
@@ -178,25 +189,19 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException("CWT must be performed before performing an operation on it");
             }
-            if (OutputCWT.GetLength(0) % 2 != 0)
+            int rows = OutputCWT.RealArray.GetLength(0);
+            int cols = OutputCWT.RealArray.GetLength(1);
+
+            double[,] output = new double[rows, cols]; 
+            for(int i = 0; i < rows; i++)
             {
-                throw new ArgumentException("Cannot extract Real and Imaginary components from a non complex CWT");
-            }
-            int originalIndex = 0;
-            int outputRowLength = OutputCWT.GetLength(0) / 2;
-            double[,] outputArray = new double[outputRowLength, OutputCWT.GetLength(1)];
-            for (int i = 0; i < outputRowLength - 1; i++)
-            {
-                int realRowIndex = originalIndex;
-                int imagRowIndex = originalIndex + 1; 
-                for (int j = 0; j < OutputCWT.GetLength(1); j++)
+                for(int j = 0; j < cols; j++)
                 {
-                    double realImRatio = OutputCWT[imagRowIndex, j] / OutputCWT[realRowIndex, j];
-                    outputArray[i, j] = Math.Atan(realImRatio);
+                    double realImRatio = OutputCWT.RealArray[i,j] / OutputCWT.ImagArray[i,j];
+                    output[i, j] = Math.Atan(realImRatio); 
                 }
-                originalIndex += 2; 
             }
-            return outputArray;
+            return output; 
         }
         public enum CWTComponent
         {
@@ -230,10 +235,10 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException("OutputCWT", "Output CWT must be calculated prior to calculating a time axis for it");
             }
-            double [] timeArray = new double[OutputCWT.GetLength(1)];
+            double [] timeArray = new double[OutputCWT.RealArray.GetLength(1)];
             double timeStep = 1 / (double)SamplingRate;
             double currentTime = 0;
-            for (int i = 0; i < OutputCWT.GetLength(1); i++)
+            for (int i = 0; i < OutputCWT.RealArray.GetLength(1); i++)
             {
                 timeArray[i] = currentTime;
                 currentTime += timeStep;
