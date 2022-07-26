@@ -334,9 +334,20 @@ namespace FCWTNET
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
         }
 
-        // This method currently only works to generate the evolution plot
-        // I plan to deal with the others after we figure out what the issue is with CWT
-        public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double startFrequency, double endFrequency, int sampleNumber, string? dataName = null)
+        /// <summary>
+        /// Method to generate different 2D XY Plots from the CWT along frequency bands
+        /// Allows for the generation of composite, evolution and single frequency band plots
+        /// </summary>
+        /// <param name="cwtFeature">Feature of the CWT to be plotted</param>
+        /// <param name="fileName">File to write the plot to</param>
+        /// <param name="plotMode">Specifies the type of plot to generate</param>
+        /// <param name="startFrequency">Starting frequency to sample for the plot</param>
+        /// <param name="endFrequency">End frequency to sample for the plot</param>
+        /// <param name="sampleNumber">Number of frequencies to sample</param>
+        /// <param name="dataName">Name of the data to enter</param>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
+        public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, double startFrequency, double? endFrequency, int? sampleNumber, string? dataName = null)
         {
             if (TimeAxis == null)
             {
@@ -385,40 +396,64 @@ namespace FCWTNET
             {
                 title = dataName + title;
             }
-            
-            if (plotMode == PlottingUtils.XYPlotOptions.Evolution)
+
+            int[] indFrequencies;
+            if (plotMode == PlottingUtils.XYPlotOptions.Evolution || plotMode == PlottingUtils.XYPlotOptions.Composite)
             {
-                (int, int) freqIndices = GetIndicesForFrequencyRange(startFrequency, endFrequency);                
-                int[] indFrequencies = new int[sampleNumber];                
-                if (sampleNumber < (freqIndices.Item2 - freqIndices.Item1))
+
+                if(endFrequency != null && sampleNumber != null)
                 {
-                    double virtualLocation = 0;
-                    double stepSize = ((double)(freqIndices.Item2 - freqIndices.Item1) - 1) / ((double)sampleNumber - 1);                
-                    for (int i = 0; i < sampleNumber; i++)
+                    (int, int) freqIndices = GetIndicesForFrequencyRange((double)startFrequency, (double)endFrequency);
+                    int maxFrequencies = freqIndices.Item2 - freqIndices.Item1;                    
+                    if (sampleNumber < (maxFrequencies))
                     {
-                        if (i < sampleNumber - 1)
+                        indFrequencies = new int[(int)sampleNumber];
+                        double virtualLocation = 0;
+                        double stepSize = ((double)(freqIndices.Item2 - freqIndices.Item1) - 1) / ((double)sampleNumber - 1);
+                        for (int i = 0; i < sampleNumber; i++)
                         {
-                            indFrequencies[i] = freqIndices.Item1 + Convert.ToInt32(Math.Floor(virtualLocation));
+                            if (i < sampleNumber - 1)
+                            {
+                                indFrequencies[i] = freqIndices.Item1 + Convert.ToInt32(Math.Floor(virtualLocation));
+                            }
+                            else
+                            {
+                                indFrequencies[i] = freqIndices.Item2;
+                            }
+                            virtualLocation += stepSize;
                         }
-                        else
+                    }
+                    else
+                    {
+                        indFrequencies = new int[maxFrequencies];
+                        for (int i = 0; i < maxFrequencies; i++)
                         {
-                            indFrequencies[i] = freqIndices.Item2;
+                            indFrequencies[i] = freqIndices.Item1 + i;
                         }
-                        virtualLocation += stepSize;
                     }
                 }
-                double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
-                for (int i = 0; i < data.GetLength(0); i++)
+                else
                 {
-                    for (int j = 0; j < data.GetLength(1); j++)
-                    {
-                        xyReflectedData[j, i] = data[i, j];
-                    }
+                    throw new ArgumentNullException("Neither startFreqeuncy nor endFrequency may be null");
                 }
-                PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, TimeAxis, FrequencyAxis, PlottingUtils.PlotTitles.Custom, plotMode, title);
-                string filePath = Path.Combine(WorkingPath, fileName);
-                PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
+                
             }
+            else
+            {
+                indFrequencies = new int[] {Array.BinarySearch(FrequencyAxis, startFrequency)};
+            }
+            double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
+            for (int i = 0; i < data.GetLength(0); i++)
+            {
+                for (int j = 0; j < data.GetLength(1); j++)
+                {
+                    xyReflectedData[j, i] = data[i, j];
+                }
+            }
+            PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, TimeAxis, FrequencyAxis, PlottingUtils.PlotTitles.Custom, plotMode, title);
+
+            string filePath = Path.Combine(WorkingPath, fileName);
+            PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
 
         }
         public (int, int) GetIndicesForFrequencyRange(double startFrequency, double endFrequency)
