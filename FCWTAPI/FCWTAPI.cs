@@ -19,6 +19,57 @@ namespace FCWTNET
             float[][] results = FixOutputArray(output, inputSize, noctaves, pnbvoice);
             return results;
         }
+        public static float[] CWT_Base(float[] input, int psoctave, int pendoctave, 
+            int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
+        {
+            float[] output = GenerateOutputArray(input.Length, pendoctave - psoctave + 1, pnbvoice);
+            _cwt(input, input.Length, output, psoctave, pendoctave, pnbvoice, c0, nthreads, use_optimization_schemes);
+            return output; 
+        }
+        public static void SplitCWTOutput(float[] output, int signalLength, 
+            out double[][] realArray, out double[][] imagArray)
+        {
+            double[] real1D = new double[output.Length / 2]; 
+            double[] imag1D = new double[output.Length / 2];
+
+            // convert the float to double
+            double[] outputd = output.Select(i => (double)i).ToArray();
+
+            int j = 0;
+            int k = 0;
+
+            for (int i = 0; i < outputd.Length; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    real1D[j] = outputd[i];
+                    j++;
+                }
+                else
+                {
+                    imag1D[k] = outputd[i];
+                    k++;
+                }
+                if (k >= imag1D.Length)
+                {
+                    break;
+                }
+            }
+            int rowsJagged = real1D.Length / signalLength;
+            int offset = signalLength;
+            int bytesToCopy = offset * sizeof(double);
+            realArray = new double[rowsJagged][];
+            imagArray = new double[rowsJagged][]; 
+
+            for(int i = 0; i < rowsJagged; i++)
+            {
+                realArray[i] = new double[offset];
+                imagArray[i] = new double[offset];
+
+                Buffer.BlockCopy(real1D, offset * i * sizeof(double), realArray[i], 0, bytesToCopy);
+                Buffer.BlockCopy(imag1D, offset * i * sizeof(double), imagArray[i], 0, bytesToCopy);
+            }
+        }
         /// <summary>
         /// Performs a fast continous wavelet transform with a morlet wavelet. 
         /// </summary>
@@ -64,17 +115,27 @@ namespace FCWTNET
         public static float[][] FixOutputArray(float[] array1D, int size, int noctave, int nvoice)
         {
             // From the original fCWT library code 
-            int numberRows = noctave * nvoice * 2; 
+            int numberCols = noctave * nvoice * 2;
+            int numberRows = size; 
             // Creates the final with freq as higher dim
-            float[][] fixedResults = new float[numberRows][];
-            for(int i = 0; i < numberRows; i++)
+            float[][] fixedResults = new float[numberCols][];
+            for(int i = 0; i < numberCols; i += 2)
             {
-                float[] temp = new float[size];
-                for (int j = 0; j < size; j++)
+                float[] imagtemp = new float[size];
+                float[] realtemp = new float[size]; 
+                for (int j = 0; j < numberRows; j++)
                 {
-                    temp[j] = array1D[i + j];
+                    if(j % 2 == 0)
+                    {
+                        realtemp[j] = array1D[j];
+                    }
+                    else
+                    {
+                        imagtemp[j] = array1D[j]; 
+                    }
                 }
-                fixedResults[i] = temp;
+                fixedResults[i] = realtemp;
+                fixedResults[i + 1] = imagtemp; 
             }
             return fixedResults;
         }
@@ -148,27 +209,27 @@ namespace FCWTNET
         {
             // every other row is the opposite
             int rowNumber = combinedArray.GetLength(0);
-
+            int colNumber = combinedArray[0].Length;
             // row number will always be even when using a complex wavelet
 
-            realArray = new float[rowNumber / 2][];
-            imaginaryArray = new float[rowNumber / 2][];
+            realArray = new float[colNumber / 2][];
+            imaginaryArray = new float[colNumber / 2][];
 
             int realIndexer = 0;
             int imagIndexer = 0;
             int combinedIndexer = 0;
-            while (combinedIndexer < rowNumber)
+            while (combinedIndexer < colNumber)
             {
-                int rowLength = combinedArray[combinedIndexer].Length;
+                int colLength = combinedArray[combinedIndexer].Length;
                 if (combinedIndexer % 2 == 0)
                 {
-                    realArray[realIndexer] = new float[rowLength];
+                    realArray[realIndexer] = new float[colLength];
                     realArray[realIndexer] = combinedArray[combinedIndexer];
                     realIndexer++;
                 }
                 else
                 {
-                    imaginaryArray[imagIndexer] = new float[rowLength];
+                    imaginaryArray[imagIndexer] = new float[colLength];
                     imaginaryArray[imagIndexer] = combinedArray[combinedIndexer];
                     imagIndexer++;
                 }
