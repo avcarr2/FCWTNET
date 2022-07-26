@@ -107,7 +107,7 @@ namespace TestFCWTAPI
             CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             cosCWT.CalculateFrequencyAxis();
             cosCWT.PerformCWT();
-            Assert.AreEqual(cosCWT.FrequencyAxis[4], (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
+            Assert.AreEqual(cosCWT.GetFrequencyAtIndex(4), (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
             Assert.AreEqual(cosCWT.OutputCWT.GetLength(0) / 2, cosCWT.FrequencyAxis.Length);
         }
         [Test]
