@@ -26,6 +26,50 @@ namespace FCWTNET
             _cwt(input, input.Length, output, psoctave, pendoctave, pnbvoice, c0, nthreads, use_optimization_schemes);
             return output; 
         }
+        public static void SplitCWTOutput(float[] output, int signalLength, 
+            out double[][] realArray, out double[][] imagArray)
+        {
+            double[] real1D = new double[output.Length / 2]; 
+            double[] imag1D = new double[output.Length / 2];
+
+            // convert the float to double
+            double[] outputd = output.Select(i => (double)i).ToArray();
+
+            int j = 0;
+            int k = 0;
+
+            for (int i = 0; i < outputd.Length; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    real1D[j] = outputd[i];
+                    j++;
+                }
+                else
+                {
+                    imag1D[k] = outputd[i];
+                    k++;
+                }
+                if (k >= imag1D.Length)
+                {
+                    break;
+                }
+            }
+            int rowsJagged = real1D.Length / signalLength;
+            int offset = signalLength;
+            int bytesToCopy = offset * sizeof(double);
+            realArray = new double[rowsJagged][];
+            imagArray = new double[rowsJagged][]; 
+
+            for(int i = 0; i < rowsJagged; i++)
+            {
+                realArray[i] = new double[offset];
+                imagArray[i] = new double[offset];
+
+                Buffer.BlockCopy(real1D, offset * i * sizeof(double), realArray[i], 0, bytesToCopy);
+                Buffer.BlockCopy(imag1D, offset * i * sizeof(double), imagArray[i], 0, bytesToCopy);
+            }
+        }
         /// <summary>
         /// Performs a fast continous wavelet transform with a morlet wavelet. 
         /// </summary>
