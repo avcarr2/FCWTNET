@@ -174,18 +174,24 @@ namespace TestFCWTAPI
         }
 
         [Test]
-        public void TestGenerateHeatMapCWTOject()
+        public void TestGenerateHeatMapCWTObject()
         {
             double[] cosine = Enumerable.Range(1, 1000)
                                         .Select(i => FunctionGenerator.GenerateCosineWave((double)i / 57.2958))
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
             CWTObject cosCWT = new(cosine, 1, 16, 48, 300F, 4, false, 1000, workingPath: testWorkingPath);
-            cosCWT.PerformCWT();
-            cosCWT.CalculateTimeAxis();
-            cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.pdf", testDataName));
+            cosCWT.PerformCWT();
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.pdf", testDataName));
+            cosCWT.CalculateTimeAxis();
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.pdf", testDataName));
+            cosCWT.CalculateFrequencyAxis();
             cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.pdf", testDataName);
+            Assert.Throws<ArgumentException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.xlsx", testDataName));
+
+
         }
         [Test]
         public void TestGenerateXYPlotCWTObject()
@@ -195,14 +201,18 @@ namespace TestFCWTAPI
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
             CWTObject cosCWT = new(cosine, 1, 16, 48, 300f, 4, false, 1000, workingPath: testWorkingPath);
-            cosCWT.PerformCWT();
-            cosCWT.CalculateTimeAxis();
-            cosCWT.CalculateFrequencyAxis();
             string testDataName = "TestCos";
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName));
+            cosCWT.PerformCWT();
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName));
+            cosCWT.CalculateTimeAxis();
+            Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName));
+            cosCWT.CalculateFrequencyAxis();            
             cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName);
             cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTComposite.pdf", PlottingUtils.XYPlotOptions.Composite, 0.09D, 100D, 10, testDataName);
             cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTSingle.pdf", PlottingUtils.XYPlotOptions.Single, 0.09D);
             Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 0.09D));
+            Assert.Throws<ArgumentException>(() => cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.xlsx", PlottingUtils.XYPlotOptions.Evolution, 0.09D, 100D, 10, testDataName));
         }
         [Test]
         public void TestCosine()

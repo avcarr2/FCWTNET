@@ -290,9 +290,9 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(OutputCWT), "OutputCWT cannot be null");
             }
-            if (FrequencyAxis.WaveletCenterFrequencies == null)
+            if (FrequencyAxis == null)
             {
-                throw new ArgumentNullException(nameof(FrequencyAxis.WaveletCenterFrequencies), "FrequencyAxis cannot be null");
+                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
             }
             if (Path.GetExtension(fileName) != ".pdf")
             {
@@ -488,7 +488,7 @@ namespace FCWTNET
             }
             if(FrequencyAxis.WaveletCenterFrequencies[^2] <= startFrequency)
             {
-                return (FrequencyAxis.Length - 2, FrequencyAxis.Length - 1);
+                return (FrequencyAxis.WaveletCenterFrequencies.Length - 2, FrequencyAxis.WaveletCenterFrequencies.Length - 1);
             }
             else
             {
