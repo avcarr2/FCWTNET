@@ -51,8 +51,7 @@ namespace FCWTNET
         {
             FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes, 
                 out double[][] real, out double[][] imag);
-            OutputCWT = new(real, imag); 
-
+            OutputCWT = new CWTOutput(real, imag); 
         }
         /// <summary>
         /// Function to separate the real and imaginary components of the CWT for complex wavelets

@@ -8,16 +8,11 @@ namespace FCWTNET
 {
     public class CWTOutput
     {
-        private double[][] realJagged;
-        private double[][] imagJagged; 
-
         public double[,] RealArray { get; private set; }
         public double[,] ImagArray { get; private set; }
 
         public CWTOutput(double[][] real, double[][] imag)
         {
-            realJagged = real;
-            imagJagged = imag;
             RealArray = FCWTAPI.ToTwoDArray(real);
             ImagArray = FCWTAPI.ToTwoDArray(imag); 
         }
