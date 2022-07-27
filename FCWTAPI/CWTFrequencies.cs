@@ -11,11 +11,14 @@ namespace FCWTNET
         public double[]? WaveletCenterFrequencies { get; private set; }
         public int Length { get; private set; }
         public int Pnbvoice { get; private set; }
-        public CWTFrequencies(double[] centerFrequencies, int pnbvoice)
+        // Knowing C0 will likely be necessary downstream for knowing the actual frequencies
+        public float C0 {  get; private set; }
+        public CWTFrequencies(double[] centerFrequencies, int pnbvoice, float c0)
         {
             WaveletCenterFrequencies = centerFrequencies;
             Length = centerFrequencies.Length;
             Pnbvoice = pnbvoice;
+            C0 = c0;
         }
         public CWTFrequencies()
         {
@@ -39,28 +42,33 @@ namespace FCWTNET
             }
             return mzValues; 
         }
+        /// <summary>
+        /// Method to get starting and ending indices for a particular frequency range.
+        /// This is intentionally greedy in the sense that the index range will always include the desired start and end frequencies
+        /// </summary>
+        /// <param name="startFrequency">Desired starting frequency</param>
+        /// <param name="endFrequency">Desired ending frequency</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentException"></exception>
         public (int, int) CalculateIndicesForFrequencyRange(double startFrequency, double endFrequency)
         {          
 
             if (WaveletCenterFrequencies == null)
             {
-                throw new ArgumentNullException(nameof(WaveletCenterFrequencies), "WaveletCenterFrequencies cannot be null");
+                throw new NullReferenceException("WaveletCenterFrequencies is null");
             }
             if (WaveletCenterFrequencies[0] > startFrequency)
             {
-                throw new ArgumentException(nameof(startFrequency), "startFrequency cannot be less than the minimum frequency");
+                throw new ArgumentException("startFrequency cannot be less than the minimum frequency", nameof(startFrequency));
             }
             if (startFrequency >= endFrequency)
             {
-                throw new ArgumentException(nameof(endFrequency), "endFrequency must be greater than startFrequency");
+                throw new ArgumentException("endFrequency must be greater than startFrequency", nameof(endFrequency));
             }
             if (WaveletCenterFrequencies[^1] < endFrequency)
             {
-                throw new ArgumentException(nameof(endFrequency), "endFrequency must not be greater than the maximum CWT frequency");
-            }
-            if (WaveletCenterFrequencies[^2] <= startFrequency)
-            {
-                return (WaveletCenterFrequencies.Length - 2, WaveletCenterFrequencies.Length - 1);
+                throw new ArgumentException("endFrequency must not be greater than the maximum CWT frequency", nameof(endFrequency));
             }
             else
             {
@@ -87,7 +95,7 @@ namespace FCWTNET
                 }
                 axisStartFrequency = WaveletCenterFrequencies[positiveStartIndex];
                 double deltaA = 1 / Convert.ToDouble(Pnbvoice);
-                int numFreqs = Convert.ToInt32(Math.Ceiling(Math.Log2(endFrequency / axisStartFrequency) / deltaA));
+                int numFreqs = 1 + Convert.ToInt32(Math.Ceiling(Math.Log2(endFrequency / axisStartFrequency) / deltaA));
                 int axisEndIndex = axisStartIndex + numFreqs;
                 return (axisStartIndex, axisEndIndex);
             }

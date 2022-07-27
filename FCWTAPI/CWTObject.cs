@@ -209,11 +209,11 @@ namespace FCWTNET
             int octaveNum = 1 + Pendoctave - Psoctave;
             double deltaA = 1 / Convert.ToDouble(Pnbvoice);
             double[] freqArray = new double[octaveNum * Pnbvoice];
-            for (int i = 0 ; i < octaveNum * Pnbvoice; i++)
+            for (int i = 1 ; i <= octaveNum * Pnbvoice; i++)
             {
-                freqArray[i] = C0 / Math.Pow(2, (1 + (i + 1) * deltaA));
+                freqArray[^i] = C0 / Math.Pow(2, (1 + (i + 1) * deltaA));
             }
-            FrequencyAxis = new CWTFrequencies(freqArray);            
+            FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, C0);            
         }
         public void CalculateTimeAxis()
         {

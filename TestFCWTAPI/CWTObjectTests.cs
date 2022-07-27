@@ -94,23 +94,6 @@ namespace TestFCWTAPI
             Assert.AreEqual(testPoint, testPhase[32, 32], 0.001);
         }
         [Test]
-        public static void TestCalculateFrequencyAxis()
-        {
-            double[] testValues = new double[1000];
-            double constant = 1D / 1000D * 2D * Math.PI;
-            for (int i = 0; i < 1000; i++)
-            {
-                double val = (double)i * constant;
-                testValues[i] = val;
-            }
-            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
-            CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            cosCWT.CalculateFrequencyAxis();
-            cosCWT.PerformCWT();
-            Assert.AreEqual(cosCWT.GetFrequencyAtIndex(4), (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
-            Assert.AreEqual(cosCWT.OutputCWT.GetLength(0) / 2, cosCWT.FrequencyAxis.Length);
-        }
-        [Test]
         public static void TestCalculateTimeAxis()
         {
             double[] testValues = new double[1000];
