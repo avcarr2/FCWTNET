@@ -50,7 +50,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateCWTHeatMap()
         {
-            double[,] testData = TestDataGeneration.GenerateAssymetricalGaussian();
+            double[,] testData = TestDataGeneration.GenerateAsymmetricalGaussian();
             double[] timeAxis = new double[1000];
             double[] freqAxis = new double[1000];
             for (int i = 0; i < testData.GetLength(0); i++)
@@ -64,7 +64,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateCWTContourPlot()
         {
-            double[,] testData = TestDataGeneration.GenerateAssymetricalGaussian();
+            double[,] testData = TestDataGeneration.GenerateAsymmetricalGaussian();
             double[] timeAxis = new double[1000];
             double[] freqAxis = new double[1000];
             for (int i = 0; i < testData.GetLength(0); i++)
@@ -78,7 +78,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateXYPlotCWT()
         {
-            double[,] testData = TestDataGeneration.GenerateAssymetricalGaussian();
+            double[,] testData = TestDataGeneration.GenerateAsymmetricalGaussian();
             int[] testMultiple = new int[] { 300, 400, 450, 500, 530, 620, 680 };
             int[] testSingle = new int[] { 500 };
             double[] timeAxis = new double[1000];
