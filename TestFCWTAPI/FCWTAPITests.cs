@@ -26,8 +26,9 @@ namespace TestFCWTAPI
                 testValues[i] = val;
             }
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
-            float[][] results = FCWTAPI.CWT(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            Assert.AreEqual(200 * 6 * 2, results.GetLength(0));
+            FCWTAPI.CWT(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false, 
+                out double[][] real, out double[][] imag);
+            Assert.AreEqual(200 * 6, real.GetLength(0));
         }
         [Test]
         public static void TestConvertDoubleToFloat()
@@ -83,32 +84,6 @@ namespace TestFCWTAPI
                 new float[] {11, 12, 13, 14, 15, 16, 22}
             };
             Assert.Throws<IndexOutOfRangeException>(() => FCWTAPI.ToTwoDArray(badJaggedArray3));
-        }
-
-        [Test]
-        public static void ConvertFloat2DtoDouble()
-        {
-            float[,] test2DArray = new float[,]
-            {
-                {1F, 2F, 3F, 4F, 5F },
-                {6F, 7F, 8F, 9F, 10F }
-            };
-            double[,] converted2DArray = FCWTAPI.ConvertFloat2DtoDouble(test2DArray);
-            Assert.AreEqual((float)converted2DArray[1, 2], test2DArray[1, 2]);
-        }
-        [Test]
-        public static void TestSplitIntoRealAndImaginary()
-        {
-            float[][] testArray = new float[][]
-            {
-                new float[] {1F, 2F, 3F, 4F },
-                new float[] {5F, 6F, 7F, 8F }
-            };
-
-            FCWTAPI.SplitIntoRealAndImaginary(testArray, out float[][] realArray,
-                out float[][] imaginaryArray);
-            Assert.AreEqual(4, realArray[0].Length);
-            Assert.AreEqual(4, imaginaryArray[0].Length);
         }
         [Test]
         public static void TestCalculatePhase()
