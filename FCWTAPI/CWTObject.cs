@@ -54,7 +54,14 @@ namespace FCWTNET
         public void PerformCWT()
         {
             FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes, 
-                out double[][] real, out double[][] imag);
+                out double[][] flippedReal, out double[][] flippedImag);
+            double[][] real = new double[flippedReal.Length][];
+            double[][] imag = new double[flippedImag.Length][];
+            for (int i = 1; i <= flippedReal.Length; i++)
+            {
+                real[^i] = flippedReal[i - 1];
+                imag[^i] = flippedImag[i - 1];
+            }
             OutputCWT = new CWTOutput(real, imag); 
         }
         
@@ -125,7 +132,7 @@ namespace FCWTNET
             double[] freqArray = new double[octaveNum * Pnbvoice];
             for (int i = 1 ; i <= octaveNum * Pnbvoice; i++)
             {
-                freqArray[^i] = C0 / Math.Pow(2, (1 + (i + 1) * deltaA));
+                freqArray[^i] = C0 / Math.Pow(2, (1 + (i) * deltaA));
             }
             FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, C0);            
         }
@@ -198,11 +205,11 @@ namespace FCWTNET
             double[,] data;
             if (cwtFeature == CWTFeatures.Imaginary)
             {
-                data = GetComponent(CWTComponent.Imaginary, OutputCWT);
+                data = OutputCWT.ImagArray;
             }
             else if (cwtFeature == CWTFeatures.Real)
             {
-                data = GetComponent(CWTComponent.Real, OutputCWT);
+                data = OutputCWT.RealArray;
             }
             else if (cwtFeature == CWTFeatures.Modulus)
             {
@@ -215,11 +222,11 @@ namespace FCWTNET
             string title;
             if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
             {
-                title = cwtFeature.ToString() + "Component Plot";
+                title = cwtFeature.ToString() + " Component Plot";
             }
             else
             {
-                title = cwtFeature.ToString() + "Plot";
+                title = cwtFeature.ToString() + " Plot";
             }
             if (dataName != null)
             {
@@ -274,11 +281,11 @@ namespace FCWTNET
             double[,] data;
             if (cwtFeature == CWTFeatures.Imaginary)
             {
-                data = GetComponent(CWTComponent.Imaginary, OutputCWT);
+                data = OutputCWT.ImagArray;
             }
             else if (cwtFeature == CWTFeatures.Real)
             {
-                data = GetComponent(CWTComponent.Real, OutputCWT);
+                data = OutputCWT.RealArray;
             }
             else if (cwtFeature == CWTFeatures.Modulus)
             {
@@ -308,7 +315,7 @@ namespace FCWTNET
 
                 if(endFrequency != null && sampleNumber != null)
                 {
-                    (int, int) freqIndices = GetIndicesForFrequencyRange((double)startFrequency, (double)endFrequency);
+                    (int, int) freqIndices = FrequencyAxis.CalculateIndicesForFrequencyRange((double)startFrequency, (double)endFrequency);
                     int maxFrequencies = freqIndices.Item2 - freqIndices.Item1;                    
                     if (sampleNumber < (maxFrequencies))
                     {
@@ -363,61 +370,6 @@ namespace FCWTNET
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
 
         }
-        // This is a temporary method, I want to get all of the plotting stuff integrated first, and then I will work on moving this to CWTFrequencies.
-        public (int, int) GetIndicesForFrequencyRange(double startFrequency, double endFrequency)
-        {
-            
-            if (FrequencyAxis == null)
-            {
-                throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
-            }
-            if (FrequencyAxis.WaveletCenterFrequencies[0] > startFrequency)
-            {
-                throw new ArgumentException(nameof(startFrequency), "startFrequency cannot be less than the minimum frequency");
-            }
-            if (startFrequency >= endFrequency)
-            {
-                throw new ArgumentException(nameof(endFrequency), "endFrequency must be greater than startFrequency");
-            }
-            if (FrequencyAxis.WaveletCenterFrequencies[^1] < endFrequency)
-            {
-                throw new ArgumentException(nameof(endFrequency), "endFrequency must not be greater than the maximum CWT frequency");
-            }
-            if(FrequencyAxis.WaveletCenterFrequencies[^2] <= startFrequency)
-            {
-                return (FrequencyAxis.WaveletCenterFrequencies.Length - 2, FrequencyAxis.WaveletCenterFrequencies.Length - 1);
-            }
-            else
-            {
-                int rawStartIndex = Array.BinarySearch(FrequencyAxis.WaveletCenterFrequencies, startFrequency);
-                double axisStartFrequency;
-                int axisStartIndex;
-                int positiveStartIndex;
-                if (rawStartIndex < 0)
-                {
-                    positiveStartIndex = rawStartIndex * -1 - 1;
-                }
-                else
-                {
-                    positiveStartIndex = rawStartIndex;
-                }
-
-                if (FrequencyAxis.WaveletCenterFrequencies[positiveStartIndex] > startFrequency)
-                {
-                    axisStartIndex = positiveStartIndex - 1;
-                }
-                else
-                {
-                    axisStartIndex = positiveStartIndex;
-                }
-                axisStartFrequency = FrequencyAxis.WaveletCenterFrequencies[positiveStartIndex];
-                double deltaA = 1 / Convert.ToDouble(Pnbvoice);
-                int numFreqs = Convert.ToInt32(Math.Ceiling(Math.Log2(endFrequency / axisStartFrequency) / deltaA));
-                int axisEndIndex = axisStartIndex + numFreqs;
-                return (axisStartIndex, axisEndIndex);
-                
-            }
-            
-        }           
+               
     }
 }

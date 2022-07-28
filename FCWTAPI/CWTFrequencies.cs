@@ -100,10 +100,5 @@ namespace FCWTNET
                 return (axisStartIndex, axisEndIndex);
             }
         }
-        public void CalculateFrequencyFromScale()
-        {
-
-        }
-
     }
 }

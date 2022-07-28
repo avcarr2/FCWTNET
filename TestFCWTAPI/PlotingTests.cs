@@ -19,7 +19,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestExportPlotPDF()
         {
-            double[,] testData = PlottingUtils.GenerateGaussian();
+            double[,] testData = TestDataGeneration.GenerateGaussian();
             var testPlot = PlottingUtils.GenerateHeatMap(testData, "Test Heatmap");
             Assert.Throws<ArgumentException>(() => PlottingUtils.ExportPlotPDF(testPlot, "testplot"));
             PlottingUtils.ExportPlotPDF(testPlot, "testplot.pdf");
@@ -27,14 +27,14 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateHeatMap()
         {
-            double[,] testData = PlottingUtils.GenerateGaussian();
+            double[,] testData = TestDataGeneration.GenerateGaussian();
             var testHeatMap = PlottingUtils.GenerateHeatMap(testData, "Test Heatmap");
             PlottingUtils.ExportPlotPDF(testHeatMap, "testheatmap.pdf");
         }
         [Test]
         public void TestGenerateXYPlot()
         {
-            double[,] testData = PlottingUtils.GenerateGaussian();
+            double[,] testData = TestDataGeneration.GenerateGaussian();
             int[] testMultiple = new int[] { 300, 400, 450, 500, 530, 620, 680 };
             int[] testSingle = new int[] { 500 };
             var testCompositePlot = PlottingUtils.GenerateXYPlot(testData, testMultiple, PlottingUtils.PlotTitles.Composite, PlottingUtils.XYPlotOptions.Composite);
@@ -50,7 +50,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateCWTHeatMap()
         {
-            double[,] testData = PlottingUtils.GenerateAssymetricalGaussian();
+            double[,] testData = TestDataGeneration.GenerateAssymetricalGaussian();
             double[] timeAxis = new double[1000];
             double[] freqAxis = new double[1000];
             for (int i = 0; i < testData.GetLength(0); i++)
@@ -64,7 +64,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateCWTContourPlot()
         {
-            double[,] testData = PlottingUtils.GenerateAssymetricalGaussian();
+            double[,] testData = TestDataGeneration.GenerateAssymetricalGaussian();
             double[] timeAxis = new double[1000];
             double[] freqAxis = new double[1000];
             for (int i = 0; i < testData.GetLength(0); i++)
@@ -78,7 +78,7 @@ namespace TestFCWTAPI
         [Test]
         public void TestGenerateXYPlotCWT()
         {
-            double[,] testData = PlottingUtils.GenerateAssymetricalGaussian();
+            double[,] testData = TestDataGeneration.GenerateAssymetricalGaussian();
             int[] testMultiple = new int[] { 300, 400, 450, 500, 530, 620, 680 };
             int[] testSingle = new int[] { 500 };
             double[] timeAxis = new double[1000];
