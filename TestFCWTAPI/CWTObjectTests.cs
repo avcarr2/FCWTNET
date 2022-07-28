@@ -29,8 +29,8 @@ namespace TestFCWTAPI
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
             CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             cosineCWT.PerformCWT();
-            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(0), 1200);
-            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(1), 1000);
+            Assert.AreEqual(cosineCWT.OutputCWT.Rows, 1200);
+            Assert.AreEqual(cosineCWT.OutputCWT.Columns, 1000);
         }        
         [Test]
         public static void TestModulusCalculation()
@@ -86,7 +86,7 @@ namespace TestFCWTAPI
             cosCWT.CalculateFrequencyAxis();
             cosCWT.PerformCWT();
             Assert.AreEqual(cosCWT.GetFrequencyAtIndex(4), (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
-            Assert.AreEqual(cosCWT.OutputCWT.RealArray.GetLength(0), cosCWT.FrequencyAxis.Length);
+            Assert.AreEqual(cosCWT.OutputCWT.Rows, cosCWT.FrequencyAxis.Length);
         }
         [Test]
         public static void TestCalculateTimeAxis()
@@ -102,7 +102,7 @@ namespace TestFCWTAPI
             CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false, 10);
             cosCWT.PerformCWT();
             cosCWT.CalculateTimeAxis();
-            Assert.AreEqual(cosCWT.OutputCWT.GetLength(1), cosCWT.TimeAxis.Length);
+            Assert.AreEqual(cosCWT.OutputCWT.Columns, cosCWT.TimeAxis.Length);
             Assert.AreEqual(cosCWT.TimeAxis[2], 0.2, 0.0001);
         }
     }  
