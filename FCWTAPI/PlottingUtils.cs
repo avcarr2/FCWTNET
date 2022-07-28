@@ -10,32 +10,6 @@ namespace FCWTNET
 {
     public class PlottingUtils
     {
-
-        /// <summary>
-        /// Generates a double[1000,1000] containing a 2D Gaussian function
-        /// </summary>
-        /// <returns></returns>
-        public static double[,] GenerateGaussian()
-        {
-            // Generate 1D Gaussian distribution
-            var singleData = new double[1000];
-            for (int x = 0; x < 1000; ++x)
-            {
-                singleData[x] = Math.Exp((-1.0 / 2.0) * Math.Pow(((double)x - 500.0) / 200, 2.0));
-            }
-
-            // Generate 2D Gaussian distribution
-            var data = new double[1000, 1000];
-            for (int x = 0; x < 1000; ++x)
-            {
-                for (int y = 0; y < 1000; ++y)
-                {
-                    data[x, y] = singleData[x] * singleData[y] * 1000;
-                }
-            }
-            return data;
-        }
-
         /// <summary>
         /// Creates a heat map plot from a 2D array
         /// Functionality will be added to scale axes with time and frequency info from CWT
@@ -95,7 +69,7 @@ namespace FCWTNET
             double y0 = freqAxis[0];
             double y1 = freqAxis[^1];
             var model = new PlotModel { Title = plotTitle };
-            model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100) });
+            model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100), Position = AxisPosition.Right});
             model.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
@@ -121,6 +95,43 @@ namespace FCWTNET
                 RenderMethod = HeatMapRenderMethod.Bitmap                
             };
             model.Series.Add(hms);
+
+            return model;
+        }
+        /// <summary>
+        /// Creates a contour plot from a 2D array with proper frequency and time axis
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="plotTitle"></param>
+        /// <param name="timeAxis"></param>
+        /// <param name="freqAxis"></param>
+        /// <returns></returns>
+        public static PlotModel GenerateCWTContourPlot(double[,] data, string plotTitle, double[] timeAxis, double[] freqAxis)
+        {
+
+            var model = new PlotModel { Title = plotTitle };
+            model.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                Title = "Time (ms)",
+                FontSize = 14,
+                TitleFontSize = 16
+            });
+            model.Axes.Add(new LogarithmicAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "f_{0} (Hz)",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
+            });
+            var contourSeries = new ContourSeries
+            {
+                ColumnCoordinates = timeAxis,
+                RowCoordinates = freqAxis,
+                Data = data,
+            };
+            model.Series.Add(contourSeries);
 
             return model;
         }
@@ -206,13 +217,13 @@ namespace FCWTNET
                 LineSeries[] lineSeriesArray = new LineSeries[rowIndices.Length];
                 for (int i = 0; i < rowIndices.Length; i++)
                 {
-                    var indivSer = new LineSeries();
+                    var individualFrequencySeries = new LineSeries();
                     for (int x = 0; x < data.GetLength(0); x++)
                     {
-                        indivSer.Points.Add(new DataPoint(x, data[rowIndices[i], x]));
+                        individualFrequencySeries.Points.Add(new DataPoint(x, data[x, rowIndices[i]]));
                     }
-                    indivSer.Title = "f_{0} = " + rowIndices[i].ToString();
-                    lineSeriesArray[i] = indivSer;
+                    individualFrequencySeries.Title = "f_{0} = " + rowIndices[i].ToString();
+                    lineSeriesArray[i] = individualFrequencySeries;
                 }
                 for (int i = 0; i < lineSeriesArray.Length; i++)
                 {
@@ -235,11 +246,11 @@ namespace FCWTNET
         public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, double[] timeArray, double[] freqArray, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
         {
             string actualTitle;
-            if (timeArray.Length != data.GetLength(1))
+            if (timeArray.Length != data.GetLength(0))
             {
                 throw new ArgumentException("timeArray must have the same number of timepoints as the CWT", nameof(timeArray));
             }
-            if (freqArray.Length != data.GetLength(0))
+            if (freqArray.Length != data.GetLength(1))
             {
                 throw new ArgumentException("freqArray must have the same number of timepoints as the CWT", nameof(freqArray));
             }
@@ -288,7 +299,7 @@ namespace FCWTNET
                     double compValue = 0;
                     for (int i = 0; i < rowIndices.Length; i++)
                     {
-                        compValue += data[rowIndices[i], x];
+                        compValue += data[x, rowIndices[i]];
                     }
                     compSeries.Points.Add(new DataPoint(timeArray[x], compValue));
                 }
@@ -316,7 +327,7 @@ namespace FCWTNET
                     var indivSer = new LineSeries();
                     for (int x = 0; x < data.GetLength(0); x++)
                     {
-                        indivSer.Points.Add(new DataPoint(timeArray[x], data[rowIndices[i], x]));
+                        indivSer.Points.Add(new DataPoint(timeArray[x], data[x, rowIndices[i]]));
                     }
                     indivSer.Title = "f_{0} = " + freqArray[rowIndices[i]].ToString("G3") + " Hz";
                     lineSeriesArray[i] = indivSer;
@@ -339,17 +350,17 @@ namespace FCWTNET
         /// Exports generated plots to PDF files
         /// </summary>
         /// <param name="plotModel">Plot to export</param>
-        /// <param name="fileName">Filename to export the plot to, must contain .pdf extension</param>
+        /// <param name="filePath">File path to export the plot to, must contain .pdf extension</param>
         /// <param name="plotWidth">Width of the plot</param>
         /// <param name="plotHeight">Height of the plot</param>
         /// <exception cref="ArgumentException"></exception>
-        public static void ExportPlotPDF(PlotModel plotModel, string fileName, int plotWidth = 700, int plotHeight = 600)
+        public static void ExportPlotPDF(PlotModel plotModel, string filePath, int plotWidth = 700, int plotHeight = 600)
         {
-            if (fileName.Substring(fileName.Length - 4, 4) != ".pdf")
+            if (Path.GetExtension(filePath) != ".pdf")
                 {
-                throw new ArgumentException("fileName must end in .pdf", nameof(fileName));
+                throw new ArgumentException("fileName must end in .pdf", nameof(filePath));
                 }
-            using (var exportStream = File.Create(fileName))
+            using (var exportStream = File.Create(filePath))
             {
                 var pdfExport = new PdfExporter
                 {

@@ -63,6 +63,8 @@ namespace TestFCWTAPI
             float[,] test2DArray = FCWTAPI.ToTwoDArray(testJagged2d);
             Assert.AreEqual(3, test2DArray.GetLength(0));
             Assert.AreEqual(6, test2DArray.GetLength(1));
+            Assert.AreEqual(testJagged2d[0][4], test2DArray[0, 4]);
+            Assert.AreEqual(testJagged2d[2][2], test2DArray[2, 2]);
             float[][] badJaggedArray1 = new float[][]
             {
                 new float[] {1, 2, 3, 4, 5, 6, 22},

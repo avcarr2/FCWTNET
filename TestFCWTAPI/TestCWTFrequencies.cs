@@ -54,10 +54,10 @@ namespace TestFCWTAPI
             Assert.Throws<ArgumentException>(() => cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.01, 2));
             Assert.Throws<ArgumentException>(() => cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.09, 28));
             Assert.Throws<ArgumentException>(() => cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.09, 0.08));
-            var frequencyIndexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.04892, 0.06278);
+            var frequencyIndexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.04909, 0.06278);
             Assert.AreEqual(0, frequencyIndexRange.Item1);
-            Assert.AreEqual(72, frequencyIndexRange.Item2);
-            var endindexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(3.1091, 3.1198);
+            Assert.AreEqual(71, frequencyIndexRange.Item2);
+            var endindexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(3.1199, 3.13);
             Assert.AreEqual(1198, endindexRange.Item1);
             Assert.AreEqual(1199, endindexRange.Item2);
 
