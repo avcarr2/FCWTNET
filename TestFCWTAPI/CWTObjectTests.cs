@@ -14,7 +14,6 @@ namespace TestFCWTAPI
         {
 
         }
-      
         [Test]
         public static void testPerformCWT()
         {
@@ -28,34 +27,9 @@ namespace TestFCWTAPI
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
             CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             cosineCWT.PerformCWT();
-            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(0), 200 * 6 * 2);
-            Assert.AreEqual(cosineCWT.OutputCWT.GetLength(1), 1000);
-        }
-        [Test]
-        public static void TestSplitRealAndImaginary()
-        {
-            double[] testValues = new double[1000];
-            double constant = 1D / 1000D * 2D * Math.PI;
-            for (int i = 0; i < 1000; i++)
-            {
-                double val = (double)i * constant;
-                testValues[i] = val;
-            }
-            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
-            CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            cosineCWT.PerformCWT();
-            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
-            Assert.AreEqual(imagCwt[0, 5], cosineCWT.OutputCWT[1, 5]);
-            Assert.AreEqual(realCwt[0, 21], cosineCWT.OutputCWT[0, 21]);
-            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Imaginary, out double[,] imPlaceHolder, out double[,] imagOnlyCWT);
-            Assert.AreEqual(cosineCWT.OutputCWT[3, 5], imagOnlyCWT[1, 5]);
-            Assert.AreEqual(cosineCWT.OutputCWT[cosineCWT.OutputCWT.GetLength(0) - 1, 5], imagOnlyCWT[imagOnlyCWT.GetLength(0) - 1, 5]);
-            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Real, out double[,] realOnlyCWT, out double[,] rePlaceHolder);
-            Assert.AreEqual(cosineCWT.OutputCWT[cosineCWT.OutputCWT.GetLength(0) - 2, 5], realOnlyCWT[realOnlyCWT.GetLength(0) - 1, 5]);
-            CWTObject noCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            Assert.Throws<ArgumentNullException>(() => noCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both,
-                out double[,] real, out double[,] imag));
-        }
+            Assert.AreEqual(cosineCWT.OutputCWT.Rows, 1200);
+            Assert.AreEqual(cosineCWT.OutputCWT.Columns, 1000);
+        }        
         [Test]
         public static void TestModulusCalculation()
         {
@@ -70,8 +44,7 @@ namespace TestFCWTAPI
             CWTObject noCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             Assert.Throws<ArgumentNullException>(() => noCWT.ModulusCalculation());
             CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            cosineCWT.PerformCWT();
-            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
+            cosineCWT.PerformCWT(); 
             double[,] testModulus = cosineCWT.ModulusCalculation();
             // Tests points in all 4 quadrants, none of which would remain at the same coordinates under reflection or rotation
             double testPoint1 = Math.Sqrt(realCwt[10, 25] * realCwt[10, 25] + imagCwt[10, 25] * imagCwt[10, 25]);
@@ -83,32 +56,26 @@ namespace TestFCWTAPI
             Assert.AreEqual(testPoint3, testModulus[900, 27], 0.001);
             Assert.AreEqual(testPoint4, testModulus[900, 700], 0.001);
         }
-        [Test]
-        public static void TestPhaseCalculaton()
-        {
-            double[] testValues = new double[1000];
-            double constant = 1D / 1000D * 2D * Math.PI;
-            for (int i = 0; i < 1000; i++)
-            {
-                double val = (double)i * constant;
-                testValues[i] = val;
-            }
-            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
-            CWTObject noCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            Assert.Throws<ArgumentNullException>(() => noCWT.PhaseCalculation());
-            CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
-            cosineCWT.PerformCWT();
-            cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
-            double[,] testPhase = cosineCWT.PhaseCalculation();
-            double testPoint1 = Math.Atan(imagCwt[10, 25] / realCwt[10, 25]);
-            double testPoint2 = Math.Atan(imagCwt[60, 800] / realCwt[60, 800]);
-            double testPoint3 = Math.Atan(imagCwt[900, 27] / realCwt[900, 27]);
-            double testPoint4 = Math.Atan(imagCwt[900, 700] / realCwt[900, 700]);
-            Assert.AreEqual(testPoint1, testPhase[10, 25], 0.001);
-            Assert.AreEqual(testPoint2, testPhase[60, 800], 0.001);
-            Assert.AreEqual(testPoint3, testPhase[900, 27], 0.001);
-            Assert.AreEqual(testPoint4, testPhase[900, 700], 0.001);
-        }
+        //[Test]
+        //public static void TestPhaseCalculaton()
+        //{
+        //    double[] testValues = new double[1000];
+        //    double constant = 1D / 1000D * 2D * Math.PI;
+        //    for (int i = 0; i < 1000; i++)
+        //    {
+        //        double val = (double)i * constant;
+        //        testValues[i] = val;
+        //    }
+        //    double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
+        //    CWTObject noCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
+        //    Assert.Throws<ArgumentNullException>(() => noCWT.PhaseCalculation());
+        //    CWTObject cosineCWT = new CWTObject(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
+        //    cosineCWT.PerformCWT();
+        //    cosineCWT.SplitRealAndImaginary(CWTObject.CWTComponent.Both, out double[,] realCwt, out double[,] imagCwt);
+        //    double[,] testPhase = cosineCWT.PhaseCalculation();
+        //    double testPoint = Math.Atan(imagCwt[32, 32] / realCwt[32, 32]);
+        //    Assert.AreEqual(testPoint, testPhase[32, 32], 0.001);
+        //}
         [Test]
         public static void TestCalculateFrequencyAxis()
         {
