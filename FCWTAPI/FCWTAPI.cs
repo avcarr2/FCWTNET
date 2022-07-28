@@ -9,15 +9,16 @@ namespace FCWTNET
         private static extern void _cwt([In] float[] input, int inputsize, [In, Out] float[] output,
             int pstoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes);
 
-        public static float[][] CWT(float[] input, int psoctave, int pendoctave,
-            int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
+        public static void CWT(float[] input, int psoctave, int pendoctave,
+            int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, 
+            out double[][] real, out double[][] imag)
         {
             int inputSize = input.Length;
             int noctaves = pendoctave - psoctave + 1;
             float[] output = GenerateOutputArray(inputSize, noctaves, pnbvoice);
             _cwt(input, inputSize, output, psoctave, pendoctave, pnbvoice, c0, nthreads, use_optimization_schemes);
-            float[][] results = FixOutputArray(output, inputSize, noctaves, pnbvoice);
-            return results;
+            SplitCWTOutput(output, inputSize, out double[][] realArray, out double[][] imagArray);
+            real = realArray; imag = imagArray; 
         }
         public static float[] CWT_Base(float[] input, int psoctave, int pendoctave, 
             int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
@@ -81,11 +82,14 @@ namespace FCWTNET
         /// <param name="nthreads"></param><summary>Number of threads to use. </summary>
         /// <param name="use_optimization_schemes"></param><summary>fCWT optimization scheme to use.</summary>
         /// <returns></returns>
-        public static float[][] CWT(double[] input, int psoctave, int pendoctave,
-            int pnbvoice, float c0, int nthreads, bool use_optimization_schemes)
+        public static void CWT(double[] input, int psoctave, int pendoctave,
+            int pnbvoice, float c0, int nthreads, bool use_optimization_schemes,
+            out double[][] real, out double[][] imag)
         {
             float[] fInput = ConvertDoubleToFloat(input);
-            return CWT(fInput, psoctave, pendoctave, pnbvoice, c0, nthreads, use_optimization_schemes);
+            CWT(fInput, psoctave, pendoctave, pnbvoice, c0, nthreads, use_optimization_schemes, 
+                out double[][] realTemp, out double[][] imagTemp);
+            real = realTemp; imag = imagTemp; 
         }
         public static float[] ConvertDoubleToFloat(double[] dArray)
         {
@@ -181,22 +185,35 @@ namespace FCWTNET
             }
             return twodOutput;
         }
-        /// <summary>
-        /// Method to convert a float[,] array to a double[,] array
-        /// </summary>
-        /// <param name="inputArray">Input float[,]</param>
-        /// <returns></returns>
-        public static double[,] ConvertFloat2DtoDouble(float[,] inputArray)
+        public static double[,] ToTwoDArray(double[][] jaggedTwoD)
         {
-            double[,] outputArray = new double[inputArray.GetLength(0), inputArray.GetLength(1)];
-            for(int i = 0; i < inputArray.GetLength(0);i++)
+            int arrayCount = jaggedTwoD.Length;
+            int arrayLength = jaggedTwoD[0].Length;
+            double[,] twodOutput = new double[arrayCount, arrayLength];
+            for (int i = 0; i < arrayCount; i++)
             {
-                for(int j = 0; j < inputArray.GetLength(1);j++)
+                if (i > 0)
                 {
-                    outputArray[i, j] = inputArray[i, j];
+                    if (jaggedTwoD[i].Length != jaggedTwoD[i - 1].Length)
+                    {
+                        arrayLength = jaggedTwoD[i].Length + 1;
+                    }
                 }
+                try
+                {
+                    for (int j = 0; j < arrayLength; j++)
+                    {
+                        twodOutput[i, j] = jaggedTwoD[i][j];
+                    }
+                }
+                catch (IndexOutOfRangeException)
+                {
+                    string rowError = String.Format("Invalid array length in row {0}", i);
+                    throw new IndexOutOfRangeException(rowError);
+                }
+
             }
-            return outputArray;
+            return twodOutput;
         }
 
         /// <summary>
