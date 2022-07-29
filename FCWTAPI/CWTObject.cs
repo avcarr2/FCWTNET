@@ -65,56 +65,6 @@ namespace FCWTNET
             OutputCWT = new CWTOutput(real, imag); 
         }
         
-        /// <summary>
-        /// Method to calculate the modulus of the CWT
-        /// </summary>
-        /// <returns name="outputArray">double[,] containing the result of the calculation</returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        /// <exception cref="ArgumentException"></exception>
-        public double[,] ModulusCalculation()
-        {
-            if (OutputCWT == null)
-            {
-                throw new ArgumentNullException("CWT must be performed before operating on it");
-            }
-            int rows = OutputCWT.RealArray.GetLength(0);
-            int cols = OutputCWT.ImagArray.GetLength(1); 
-            double[,] output = new double[rows, cols]; 
-            for(int i = 0; i < rows; i++)
-            {
-                for(int j = 0; j < cols; j++)
-                {
-                    output[i, j] = Math.Sqrt(Math.Pow(OutputCWT.RealArray[i, j], 2) + Math.Pow(OutputCWT.ImagArray[i, j], 2)); 
-                }
-            }
-            return output;
-        }
-        /// <summary>
-        /// Method to calculate the phase of the CWT
-        /// </summary>
-        /// <returns></returns>
-        /// <exception cref="ArgumentNullException"></exception>
-        /// <exception cref="ArgumentException"></exception>
-        public double[,] PhaseCalculation()
-        {
-            if (OutputCWT == null)
-            {
-                throw new ArgumentNullException("CWT must be performed before performing an operation on it");
-            }
-            int rows = OutputCWT.RealArray.GetLength(0);
-            int cols = OutputCWT.RealArray.GetLength(1);
-
-            double[,] output = new double[rows, cols]; 
-            for(int i = 0; i < rows; i++)
-            {
-                for(int j = 0; j < cols; j++)
-                {
-                    double realImRatio = OutputCWT.RealArray[i,j] / OutputCWT.ImagArray[i,j];
-                    output[i, j] = Math.Atan(realImRatio); 
-                }
-            }
-            return output; 
-        }
         public enum CWTComponent
         {
             Real,
@@ -213,11 +163,11 @@ namespace FCWTNET
             }
             else if (cwtFeature == CWTFeatures.Modulus)
             {
-                data = ModulusCalculation();
+                data = OutputCWT.ModulusCalculation();
             }
             else
             {
-                data = PhaseCalculation();
+                data = OutputCWT.PhaseCalculation();
             }
             string title;
             if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
@@ -289,11 +239,11 @@ namespace FCWTNET
             }
             else if (cwtFeature == CWTFeatures.Modulus)
             {
-                data = ModulusCalculation();
+                data = OutputCWT.ModulusCalculation();
             }
             else
             {
-                data = PhaseCalculation();
+                data = OutputCWT.PhaseCalculation();
             }
             string title;
             if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
