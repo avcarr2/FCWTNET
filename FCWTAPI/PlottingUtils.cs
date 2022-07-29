@@ -56,6 +56,12 @@ namespace FCWTNET
 
             return model;
         }
+        public static PlotModel GenerateCWTHeatMap(double[,] data, string plotTitle)
+        {
+            double[] defaultTimeAxis = new double[data.GetLength(1)];
+            double[] defaultFrequencyAxis = new double[data.GetLength(0)];
+            return GenerateCWTHeatMap(data, plotTitle, defaultTimeAxis, defaultFrequencyAxis);
+        }
         /// <summary>
         /// Creates a contour plot from a 2D array with proper frequency and time axis
         /// </summary>
@@ -93,7 +99,13 @@ namespace FCWTNET
 
             return model;
         }
-        
+        public static PlotModel GenerateCWTContourPlot(double[,] data, string plotTitle)
+        {
+            double[] defaultTimeAxis = new double[data.GetLength(1)];
+            double[] defaultFrequencyAxis = new double[data.GetLength(0)];
+            return GenerateCWTContourPlot(data, plotTitle, defaultTimeAxis, defaultFrequencyAxis);
+        }
+
         public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, double[] timeAxis, double[] freqAxis, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
         {
             string actualTitle;
@@ -196,6 +208,12 @@ namespace FCWTNET
                 plotModel.Legends.Add(legend);
                 return plotModel;
             }
+        }
+        public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
+        {
+            double[] defaultTimeAxis = new double[data.GetLength(1)];
+            double[] defaultFrequencyAxis = new double[data.GetLength(0)];
+            return GenerateXYPlotCWT(data, rowIndices, defaultTimeAxis, defaultFrequencyAxis, plotTitle, mode);
         }
         /// <summary>
         /// Exports generated plots to PDF files
