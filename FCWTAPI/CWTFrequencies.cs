@@ -9,38 +9,93 @@ namespace FCWTNET
     public class CWTFrequencies
     {
         public double[]? WaveletCenterFrequencies { get; private set; }
+        public double[]? TrueFrequencies { get; private set; }
+        public double[]? MZValues { get; private set; }
         public int Length { get; private set; }
         public int Pnbvoice { get; private set; }
-        // Knowing C0 will likely be necessary downstream for knowing the actual frequencies
-        public float C0 {  get; private set; }
-        public CWTFrequencies(double[] centerFrequencies, int pnbvoice, float c0)
+        public int? SamplingRate { get; private set; }
+        public double? CalibrationCoefficient { get; private set; }
+        public CWTFrequencies(double[] centerFrequencies, int pnbvoice, int? samplingRate = null, double? calibrationCoefficient = null)
         {
             WaveletCenterFrequencies = centerFrequencies;
             Length = centerFrequencies.Length;
             Pnbvoice = pnbvoice;
-            C0 = c0;
+            SamplingRate = samplingRate;
+            CalibrationCoefficient = calibrationCoefficient;
         }
         public CWTFrequencies()
         {
             WaveletCenterFrequencies = null; 
         }
-        public void ReplaceFrequencies(double[] centerFrequencies)
+        private void ReplaceFrequencies(double[] inputFrequencies, FrequencyUnits frequencyUnit)
         {
-            WaveletCenterFrequencies = centerFrequencies; 
+            switch (frequencyUnit)
+            {
+                case FrequencyUnits.WaveletFrequency:
+                    WaveletCenterFrequencies = inputFrequencies;
+                    break;
+                case FrequencyUnits.TrueFrequency:
+                    TrueFrequencies = inputFrequencies;
+                    break ;
+                case FrequencyUnits.MZValues:
+                    MZValues = inputFrequencies;
+                    break;
+            }
+            
         }
-        public double[] ToMZValues(double calibrationCoefficient)
+        public double TrueFreqToWaveletFreq(double trueFrequency)
+        {
+            if (SamplingRate.Equals(null))
+            {
+                throw new NullReferenceException("Error: SamplingRate is null");
+            }
+            return trueFrequency / (double)SamplingRate;
+        }
+        public double MZValueToWaveletFreq(double mzValue)
+        {
+            if (CalibrationCoefficient.Equals(null))
+            {
+                throw new NullReferenceException("Error: TrueFrequencies is null.");
+            }
+            double trueFrequency = Math.Sqrt((double)CalibrationCoefficient / mzValue);
+            return TrueFreqToWaveletFreq(trueFrequency);
+        }
+        public void CalculateMZValues()
         {
             // calibration formula: m/z = A/f^2
+            if (TrueFrequencies.Equals(null))
+            {
+                throw new NullReferenceException("Error: TrueFrequencies is null."); 
+            }
+            if (CalibrationCoefficient.Equals(null))
+            {
+                throw new NullReferenceException("Error: CalibrationCoefficient is null.");
+            }
+            double[] mzValues = new double[TrueFrequencies.Length];    
+            for(int i = 0; i < TrueFrequencies.Length; i++)
+            {
+                mzValues[i] = (double)CalibrationCoefficient / (TrueFrequencies[i] * TrueFrequencies[i]); 
+            }
+            ReplaceFrequencies(mzValues, FrequencyUnits.MZValues);
+
+        }
+        public void CalculateTrueFrequencies()
+        {
+            // conversion is SamplingRate * WaveletFrequency based on fCWT readme 
             if (WaveletCenterFrequencies.Equals(null))
             {
-                throw new NullReferenceException("Error: WaveletCenterFrequencies null."); 
+                throw new NullReferenceException("Error: WaveletCenterFrequencies is null");
             }
-            double[] mzValues = new double[WaveletCenterFrequencies.Length];    
-            for(int i = 0; i < WaveletCenterFrequencies.Length; i++)
+            if (SamplingRate.Equals(null))
             {
-                mzValues[i] = calibrationCoefficient / (WaveletCenterFrequencies[i] * WaveletCenterFrequencies[i]); 
+                throw new NullReferenceException("Error: SamplingRate is null");
             }
-            return mzValues; 
+            double[] trueFrequencies = new double[WaveletCenterFrequencies.Length];
+            for ( int i = 0; i < WaveletCenterFrequencies.Length; i++)
+            {
+                trueFrequencies[i] = (double)SamplingRate * WaveletCenterFrequencies[i];
+            }
+            ReplaceFrequencies(trueFrequencies, FrequencyUnits.TrueFrequency);
         }
         /// <summary>
         /// Method to get starting and ending indices for a particular frequency range.
@@ -99,6 +154,34 @@ namespace FCWTNET
                 int axisEndIndex = axisStartIndex + numFreqs;
                 return (axisStartIndex, axisEndIndex);
             }
+        }
+        public (int, int) CalculateIndicesForFrequencyRange(double startValue, double endValue, FrequencyUnits frequencyUnit)
+        {
+            double startFrequency;
+            double endFrequency;
+            switch (frequencyUnit)
+            {
+                case FrequencyUnits.TrueFrequency:    
+                    startFrequency = TrueFreqToWaveletFreq(startValue);
+                    endFrequency = TrueFreqToWaveletFreq(endValue);
+                    break;
+                case FrequencyUnits.MZValues:
+                    startFrequency = MZValueToWaveletFreq(startValue);
+                    endFrequency = MZValueToWaveletFreq(endValue);
+                    break;
+                // default case is where frequencyUnit is wavelet frequencies
+                default:
+                    startFrequency = startValue;
+                    endFrequency = endValue;
+                    break;
+            }
+            return CalculateIndicesForFrequencyRange(startFrequency, endFrequency);
+        }
+        public enum FrequencyUnits
+        {
+            WaveletFrequency,
+            TrueFrequency,
+            MZValues
         }
     }
 }
