@@ -26,14 +26,15 @@ namespace FCWTNET
         public int Nthreads { get; }
         public bool Use_Optimization_Schemes { get; }
         public int? SamplingRate { get; }
-        public double? CalibrationCoefficient { get; }
+        public double? CalibrationCoefficient { get; private set; }
 
         public CWTOutput? OutputCWT { get; private set; }
         public CWTFrequencies? FrequencyAxis { get; private set; }
         public double[]? TimeAxis { get; private set; }
         public string? WorkingPath { get; }
 
-        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, int? samplingRate = null, string? workingPath = null)
+        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, 
+            int? samplingRate = null, double? calibrationCoefficient = null, string? workingPath = null)
         {
             InputData = inputData;
             Psoctave = psoctave;
@@ -43,6 +44,7 @@ namespace FCWTNET
             Nthreads = nthreads;
             Use_Optimization_Schemes = use_optimization_schemes;
             SamplingRate = samplingRate;
+            CalibrationCoefficient = calibrationCoefficient;
             OutputCWT = null;
             FrequencyAxis = null;
             TimeAxis = null;

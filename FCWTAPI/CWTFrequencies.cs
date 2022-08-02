@@ -100,6 +100,7 @@ namespace FCWTNET
         /// <summary>
         /// Method to get starting and ending indices for a particular frequency range.
         /// This is intentionally greedy in the sense that the index range will always include the desired start and end frequencies
+        /// This method can only be used when working with wavelet frequencies 
         /// </summary>
         /// <param name="startFrequency">Desired starting frequency</param>
         /// <param name="endFrequency">Desired ending frequency</param>
@@ -166,6 +167,10 @@ namespace FCWTNET
                     endFrequency = TrueFreqToWaveletFreq(endValue);
                     break;
                 case FrequencyUnits.MZValues:
+                    if (startValue <= endValue)
+                    {
+                        throw new ArgumentException("startValue must be > endValue when using m/z values", nameof(startValue));
+                    }
                     startFrequency = MZValueToWaveletFreq(startValue);
                     endFrequency = MZValueToWaveletFreq(endValue);
                     break;

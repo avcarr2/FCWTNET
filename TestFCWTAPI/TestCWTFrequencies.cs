@@ -54,7 +54,7 @@ namespace TestFCWTAPI
             });
             noCalibration.CalculateTrueFrequencies();
             Assert.Throws<NullReferenceException>(() => noCalibration.CalculateMZValues());
-            double trueValue = calibrationCoefficient / Math.Pow((testFrequencies[0] / testSampleRate), 2);
+            double trueValue = calibrationCoefficient / Math.Pow((testFrequencies[0] * testSampleRate), 2);
             Assert.Throws<NullReferenceException>(() => cwtFrequencies.CalculateMZValues());
             cwtFrequencies.CalculateTrueFrequencies();
             cwtFrequencies.CalculateMZValues();
@@ -71,8 +71,10 @@ namespace TestFCWTAPI
                 testValues[i] = val;
             }
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
-            CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
+            CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false, 100000, 7.5e12);
             cosCWT.CalculateFrequencyAxis();
+            cosCWT.FrequencyAxis.CalculateTrueFrequencies();
+            cosCWT.FrequencyAxis.CalculateMZValues();            
             var nulledCWTFrequencies = new CWTFrequencies();
             Assert.Throws<NullReferenceException>(() => nulledCWTFrequencies.CalculateIndicesForFrequencyRange(0.8, 1.4));
             Assert.Throws<ArgumentException>(() => cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.01, 2));
@@ -84,6 +86,13 @@ namespace TestFCWTAPI
             var endindexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(3.1199, 3.13);
             Assert.AreEqual(1198, endindexRange.Item1);
             Assert.AreEqual(1199, endindexRange.Item2);
+            var mzIndexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(309108.469, 294468.634, CWTFrequencies.FrequencyUnits.MZValues);
+            Assert.AreEqual(1, mzIndexRange.Item1);
+            Assert.AreEqual(9, mzIndexRange.Item2);
+            var trueFrequencyRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(4925.781, 5242.714, CWTFrequencies.FrequencyUnits.TrueFrequency);
+            Assert.AreEqual(1, trueFrequencyRange.Item1);
+            Assert.AreEqual(19, trueFrequencyRange.Item2);
+
 
 
         }        
@@ -121,7 +130,8 @@ namespace TestFCWTAPI
             var cwtFrequencies = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate, testCalibrationCoefficient);
             var noCalibration = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate);
             Assert.Throws<NullReferenceException>(() => noCalibration.MZValueToWaveletFreq(testTrueFrequency));
-            Assert.AreEqual(cwtFrequencies.TrueFreqToWaveletFreq(testTrueFrequency), testWaveletFrequency);
+            double waveletFrequency = cwtFrequencies.TrueFreqToWaveletFreq(testTrueFrequency);
+            Assert.AreEqual(waveletFrequency, testWaveletFrequency);
         }
     }
 }
