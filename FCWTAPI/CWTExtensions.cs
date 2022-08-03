@@ -24,8 +24,8 @@ namespace FCWTNET
         /// Compresses the original double[,] to be the largest array with less columns than maxArrayColumns
         /// with the same number of rows as the original array.
         /// </summary>
-        /// <param name="data">Original double[]</param>
-        /// <param name="compressedData">Output double[]</param>
+        /// <param name="data">Original double[,]</param>
+        /// <param name="compressedData">Output double[,]</param>
         /// <param name="maxArrayColumns">Maximum number of columns in the output array</param>
         public static void Time2DArrayCompression(double[,] data, out double[,] compressedData, int maxArrayColumns)
         {
@@ -61,8 +61,8 @@ namespace FCWTNET
         /// Method for compressing CWT time axis.
         /// Compresses the original double[] to be the largest array with less elements than maxArrayColumns
         /// </summary>
-        /// <param name="data">Original double[,]</param>
-        /// <param name="compressedData">Output double[,]</param>
+        /// <param name="data">Original double[]</param>
+        /// <param name="compressedData">Output double[]</param>
         /// <param name="maxArrayColumns">Maximum number of elements in the output array</param>
         public static void TimeAxisCompression(double[] data, out double[] compressedData, int maxArrayColumns)
         {
