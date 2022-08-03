@@ -169,6 +169,17 @@ namespace FCWTNET
             {
                 data = OutputCWT.PhaseCalculation();
             }
+            // Section to compress time axis for large data plotting
+            int maxColumns = 100000;
+            double[,] finalData;
+            if (data.GetLength(1) >= maxColumns)
+            {
+                CWTExtensions.Time2DArrayCompression(data, out finalData, maxColumns);
+            }
+            else
+            {
+                finalData = data;
+            }
             string title;
             if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
             {
@@ -183,18 +194,18 @@ namespace FCWTNET
                 title = dataName + title;
             }
             // Reflects data about the xy axis to plot CWT data with Freqeuncy in the y-axis and time in the x-axis
-            double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
-            for (int i = 0; i < data.GetLength(0); i++)
+            double[,] xyReflectedData = new double[finalData.GetLength(1), finalData.GetLength(0)];
+            for (int i = 0; i < finalData.GetLength(0); i++)
             {
-                for (int j = 0; j < data.GetLength(1); j++)
+                for (int j = 0; j < finalData.GetLength(1); j++)
                 {
-                    xyReflectedData[j, i] = data[i, j];
+                    xyReflectedData[j, i] = finalData[i, j];
                 }
             }
             PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, TimeAxis, FrequencyAxis.WaveletCenterFrequencies);
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
-        }
+        }      
 
         /// <summary>
         /// Method to generate different 2D XY Plots from the CWT along frequency bands
@@ -306,6 +317,19 @@ namespace FCWTNET
                 int frequencyIndex = rawFrequencyIndex < 0 ? -rawFrequencyIndex + 1 : rawFrequencyIndex;
                 indFrequencies = new int[] {frequencyIndex};
             }
+            int maxColumns = 100000;
+            double[,] finalData;
+            double[] finalTimeAxis;
+            if (data.GetLength(1) >= maxColumns)
+            {
+                CWTExtensions.Time2DArrayCompression(data, out finalData, maxColumns);
+                CWTExtensions.TimeAxisCompression(TimeAxis, out finalTimeAxis, maxColumns);
+            }
+            else
+            {
+                finalData = data;
+                finalTimeAxis = TimeAxis;
+            }
             double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
             for (int i = 0; i < data.GetLength(0); i++)
             {
@@ -314,7 +338,7 @@ namespace FCWTNET
                     xyReflectedData[j, i] = data[i, j];
                 }
             }
-            PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, TimeAxis, FrequencyAxis.WaveletCenterFrequencies, PlottingUtils.PlotTitles.Custom, plotMode, title);
+            PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, finalTimeAxis, FrequencyAxis.WaveletCenterFrequencies, PlottingUtils.PlotTitles.Custom, plotMode, title);
 
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
