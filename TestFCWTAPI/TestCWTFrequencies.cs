@@ -15,7 +15,27 @@ namespace TestFCWTAPI
         }
 
         [Test]
-        public void TestToMzValues()
+        public void TestCalculateTrueFrequencies()
+        {
+            double[] testFrequencies = new double[]
+            {
+                0.450e6,
+                0.475e6
+            };
+            int testNbVoices = testFrequencies.Length;
+            int testSampleRate = 50000;
+            var cwtFrequencies = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate);
+            var noSampleRate = new CWTFrequencies(testFrequencies, testNbVoices);
+            var badCwtFrequencies = new CWTFrequencies();
+            Assert.Throws<NullReferenceException>(() => badCwtFrequencies.CalculateTrueFrequencies());
+            Assert.Throws<NullReferenceException>(() => noSampleRate.CalculateTrueFrequencies());
+            cwtFrequencies.CalculateTrueFrequencies();
+            double trueValue = testSampleRate * testFrequencies[0];
+            Assert.AreEqual(trueValue, cwtFrequencies.TrueFrequencies[0]);
+            
+        }
+        [Test]
+        public void TestCalculateMzValues()
         {
             double[] testFrequencies = new double[]
             {
@@ -24,17 +44,21 @@ namespace TestFCWTAPI
             };
             
             int testNbVoices = testFrequencies.Length;
-            float testC0 = 1.33F;
+            int testSampleRate = 50000;
             double calibrationCoefficient = 7.5e12; 
-            var cwtFrequencies = new CWTFrequencies(testFrequencies, testNbVoices, testC0);
+            var cwtFrequencies = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate, calibrationCoefficient);
+            var noCalibration = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate);
             var badCwtFrequencies = new CWTFrequencies();
-
             Assert.Throws<NullReferenceException>(delegate { 
-                badCwtFrequencies.ToMZValues(calibrationCoefficient);  
+                badCwtFrequencies.CalculateMZValues();  
             });
-            double trueValue = calibrationCoefficient / Math.Pow(testFrequencies[0], 2);
-            double[] mzVals = cwtFrequencies.ToMZValues(calibrationCoefficient);
-            Assert.AreEqual(trueValue, mzVals[0]); 
+            noCalibration.CalculateTrueFrequencies();
+            Assert.Throws<NullReferenceException>(() => noCalibration.CalculateMZValues());
+            double trueValue = calibrationCoefficient / Math.Pow((testFrequencies[0] * testSampleRate), 2);
+            Assert.Throws<NullReferenceException>(() => cwtFrequencies.CalculateMZValues());
+            cwtFrequencies.CalculateTrueFrequencies();
+            cwtFrequencies.CalculateMZValues();
+            Assert.AreEqual(trueValue, cwtFrequencies.MZValues[0]); 
         }
         [Test]
         public void TestCalculateIndicesForFrequencyRange()
@@ -47,8 +71,10 @@ namespace TestFCWTAPI
                 testValues[i] = val;
             }
             double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
-            CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
+            CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false, 100000, 7.5e12);
             cosCWT.CalculateFrequencyAxis();
+            cosCWT.FrequencyAxis.CalculateTrueFrequencies();
+            cosCWT.FrequencyAxis.CalculateMZValues();            
             var nulledCWTFrequencies = new CWTFrequencies();
             Assert.Throws<NullReferenceException>(() => nulledCWTFrequencies.CalculateIndicesForFrequencyRange(0.8, 1.4));
             Assert.Throws<ArgumentException>(() => cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(0.01, 2));
@@ -60,7 +86,52 @@ namespace TestFCWTAPI
             var endindexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(3.1199, 3.13);
             Assert.AreEqual(1198, endindexRange.Item1);
             Assert.AreEqual(1199, endindexRange.Item2);
+            var mzIndexRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(309108.469, 294468.634, CWTFrequencies.FrequencyUnits.MZValues);
+            Assert.AreEqual(1, mzIndexRange.Item1);
+            Assert.AreEqual(9, mzIndexRange.Item2);
+            var trueFrequencyRange = cosCWT.FrequencyAxis.CalculateIndicesForFrequencyRange(4925.781, 5242.714, CWTFrequencies.FrequencyUnits.TrueFrequency);
+            Assert.AreEqual(1, trueFrequencyRange.Item1);
+            Assert.AreEqual(19, trueFrequencyRange.Item2);
 
+
+
+        }        
+        [Test]
+        public static void TestTrueFreqToWaveletFreq()
+        {
+            double testTrueFrequency = 5000;
+            double[] testFrequencies = new double[]
+            {
+                0.450e6,
+                0.475e6
+            };
+            int testNbVoices = testFrequencies.Length;
+            int testSampleRate = 50000;
+            double testWaveletFrequency = testTrueFrequency / testSampleRate;
+            var cwtFrequencies = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate);
+            var noSampleRate = new CWTFrequencies(testFrequencies, testNbVoices);
+            Assert.Throws<NullReferenceException>(() => noSampleRate.TrueFreqToWaveletFreq(testTrueFrequency));
+            Assert.AreEqual(cwtFrequencies.TrueFreqToWaveletFreq(testTrueFrequency), testWaveletFrequency);
+        }
+        [Test]
+        public static void TestMZValueToWaveletFreq()
+        {
+            double testMZValue = 1000;
+            double[] testFrequencies = new double[]
+            {
+                0.450e6,
+                0.475e6
+            };
+            int testNbVoices = testFrequencies.Length;
+            int testSampleRate = 50000;
+            double testCalibrationCoefficient = 7.5e12;
+            double testTrueFrequency = Math.Sqrt(testCalibrationCoefficient / testMZValue);
+            double testWaveletFrequency = testTrueFrequency / testSampleRate;
+            var cwtFrequencies = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate, testCalibrationCoefficient);
+            var noCalibration = new CWTFrequencies(testFrequencies, testNbVoices, testSampleRate);
+            Assert.Throws<NullReferenceException>(() => noCalibration.MZValueToWaveletFreq(testTrueFrequency));
+            double waveletFrequency = cwtFrequencies.TrueFreqToWaveletFreq(testTrueFrequency);
+            Assert.AreEqual(waveletFrequency, testWaveletFrequency);
         }
     }
 }
