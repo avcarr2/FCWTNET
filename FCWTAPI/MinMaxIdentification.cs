@@ -8,5 +8,6 @@ namespace fCWT.NET
 {
     public class MinMaxIdentification
     {
+
     }
 }

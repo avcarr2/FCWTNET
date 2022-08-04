@@ -70,6 +70,7 @@ namespace FCWTNET
             }
             return normalizedMatrix;
         }
+
         /// <summary>
         /// Performs the 2D Gaussian smoothing on a given 2D array
         /// Applies the smoothing operation in x then y with 1D Kernels
@@ -133,6 +134,35 @@ namespace FCWTNET
                 {
                     processedPoint += matrix[influencePointX, influencePointY] * kernel[i, 0]; 
                    // Sums up the final value of the kernel
+                }
+            }
+            return processedPoint;
+        }
+        public static double[] GaussianSmoothing1D(double[] inputData, double deviation)
+        {
+            if (inputData.Length < (deviation * 6 + 1))
+            {
+                throw new ArgumentException("inputData may not be smaller than the convoluting Gaussian kernel", nameof(inputData));
+            }
+            double[,] kernel = CalculateNormalized1DSampleKernel(deviation);
+            double[] smoothedData = new double[inputData.Length];
+            for (int i = 0; i < inputData.GetLength(0); i++)
+            {
+                smoothedData[i] = ProcessPoint1D(inputData, i, kernel);
+            }
+            return smoothedData;
+        }
+        private static double ProcessPoint1D(double[] inputData, int x, double[,] kernel)
+        {
+            double processedPoint = 0;
+            int half = kernel.GetLength(0) / 2;
+           
+            for (int i = 0; i < kernel.GetLength(0); i++)
+            {
+                int influencePoint = x + i - half;
+                if (influencePoint >= 0 && influencePoint < inputData.Length)
+                {
+                    processedPoint += inputData[influencePoint] * kernel[i, 0];
                 }
             }
             return processedPoint;
