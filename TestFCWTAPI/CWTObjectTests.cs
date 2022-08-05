@@ -73,7 +73,7 @@ namespace TestFCWTAPI
                                         .Select(i => FunctionGenerator.GenerateCosineWave((double)i * 0.08 * Math.PI))
                                         .ToArray();
             string testWorkingPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
-            CWTObject cosCWT = new(cosine, 1, 6, 200, 50, 4, false, 100000, 7.5e12, workingPath: testWorkingPath);
+            CWTObject cosCWT = new(cosine, 1, 6, 200, 50, 4, false, 1000, 7.5e12, workingPath: testWorkingPath);
             string testDataName = "TestCos";
             Assert.Throws<ArgumentNullException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName));
             cosCWT.PerformCWT();
@@ -86,7 +86,16 @@ namespace TestFCWTAPI
             cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "cosTestCWTHeatmap.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName);
             cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "cosTestCWTHeatmapTrueFreq.pdf", CWTFrequencies.FrequencyUnits.TrueFrequency, testDataName);
             cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "cosTestCWTHeatmapMZVals.pdf", CWTFrequencies.FrequencyUnits.MZValues, testDataName);
+            cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "cosTestCWTHeatmapWindowed.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName, 0.1, 0.3, 1.5, 2.5);
             Assert.Throws<ArgumentException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.xlsx", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName));
+            double[] longCosine = Enumerable.Range(1, 150000)
+                            .Select(i => FunctionGenerator.GenerateCosineWave((double)i * 0.08 * Math.PI))
+                            .ToArray();
+            CWTObject longCosCWT = new(longCosine, 1, 6, 200, 50, 4, false, 1000, 7.5e12, workingPath: testWorkingPath);
+            longCosCWT.PerformCWT();
+            longCosCWT.CalculateTimeAxis();
+            longCosCWT.CalculateFrequencyAxis();
+            longCosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "longCosTestCWTHeatmap.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName);
 
 
         }
@@ -112,6 +121,8 @@ namespace TestFCWTAPI
             cosCWT.FrequencyAxis.CalculateMZValues();
             cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolution.pdf", PlottingUtils.XYPlotOptions.Evolution, 
                 CWTFrequencies.FrequencyUnits.WaveletFrequency, 1.8, 2.4, 10, testDataName);
+            cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTEvolutionTimeWindowed.pdf", PlottingUtils.XYPlotOptions.Evolution,
+                CWTFrequencies.FrequencyUnits.WaveletFrequency, 1.8, 2.4, 10, testDataName, 0.003, 0.007);
             // Tests composite summing a limited number of steps
             cosCWT.GenerateXYPlot(CWTObject.CWTFeatures.Modulus, "testcosCWTComposite_10Steps.pdf", PlottingUtils.XYPlotOptions.Composite, 
                 CWTFrequencies.FrequencyUnits.WaveletFrequency, 1.8, 2.4, 10, testDataName);

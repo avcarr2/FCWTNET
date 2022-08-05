@@ -136,8 +136,9 @@ namespace FCWTNET
         /// <param name="dataName">Optional name of the data to pass into the title of the plot</param>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
-        public void GenerateHeatMap(CWTFeatures cwtFeature, string fileName, CWTFrequencies.FrequencyUnits 
-            frequencyAxisUnits, string? dataName = null)
+        public void GenerateHeatMap(CWTFeatures cwtFeature, string fileName, CWTFrequencies.FrequencyUnits frequencyAxisUnits, 
+            string? dataName = null, double? startTime = null, double? endTime = null, double? startFrequency = null, double? endFrequency = null)
+        
         {
             if (TimeAxis == null)
             {
@@ -177,29 +178,52 @@ namespace FCWTNET
                     plotFrequencyAxis = FrequencyAxis.WaveletCenterFrequencies;
                     break;
             }
+
             double[,] data;
-            if (cwtFeature == CWTFeatures.Imaginary)
+            switch (cwtFeature)
             {
-                data = OutputCWT.ImagArray;
+                case CWTFeatures.Imaginary:
+                    data = OutputCWT.ImagArray;
+                    break;
+                case CWTFeatures.Real:
+                    data = OutputCWT.RealArray;
+                    break;
+                case CWTFeatures.Modulus:
+                    data = OutputCWT.ModulusCalculation();
+                    break;
+                default:
+                    data = OutputCWT.PhaseCalculation();
+                    break;
             }
-            else if (cwtFeature == CWTFeatures.Real)
+            // Section to compress time axis for large data plotting
+            double[] finalTimeAxis;
+            if (startTime.HasValue && endTime.HasValue)
             {
-                data = OutputCWT.RealArray;
-            }
-            else if (cwtFeature == CWTFeatures.Modulus)
-            {
-                data = OutputCWT.ModulusCalculation();
+                double[,] timeWindowedData;
+                CWTExtensions.TimeWindowing((double)startTime, (double)endTime, TimeAxis, data, out finalTimeAxis, out timeWindowedData);
+                data = timeWindowedData;
             }
             else
             {
-                data = OutputCWT.PhaseCalculation();
+                finalTimeAxis = TimeAxis;
             }
-            // Section to compress time axis for large data plotting
+            if (startFrequency.HasValue && endFrequency.HasValue)
+            {
+                double[] windowedFrequencyAxis;
+                double[,] freqWindowedData;
+                FrequencyAxis.FrequencyWindowing((double)startFrequency, (double)endFrequency, plotFrequencyAxis, data, 
+                    frequencyAxisUnits, out windowedFrequencyAxis, out freqWindowedData);
+                data = freqWindowedData;
+                plotFrequencyAxis = windowedFrequencyAxis;
+            }
             int maxColumns = 100000;
             double[,] finalData;
             if (data.GetLength(1) >= maxColumns)
             {
+                double[] compressedTimeAxis;
                 CWTExtensions.Time2DArrayCompression(data, out finalData, maxColumns);
+                CWTExtensions.TimeAxisCompression(finalTimeAxis, out compressedTimeAxis, maxColumns);
+                finalTimeAxis = compressedTimeAxis;
             }
             else
             {
@@ -227,7 +251,7 @@ namespace FCWTNET
                     xyReflectedData[j, i] = finalData[i, j];
                 }
             }            
-            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, TimeAxis, plotFrequencyAxis);
+            PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, finalTimeAxis, plotFrequencyAxis);
             string filePath = Path.Combine(WorkingPath, fileName);
             PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
         }      
@@ -246,7 +270,7 @@ namespace FCWTNET
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
         public void GenerateXYPlot(CWTFeatures cwtFeature, string fileName, PlottingUtils.XYPlotOptions plotMode, CWTFrequencies.FrequencyUnits frequencyAxisUnits,
-            double startValue, double ? endValue = null, int? sampleNumber = null, string? dataName = null)
+            double startValue, double ? endValue = null, int? sampleNumber = null, string? dataName = null, double? startTime = null, double? endTime = null)
         {
             if (TimeAxis == null)
             {
@@ -291,21 +315,20 @@ namespace FCWTNET
                     break;
             }
             double[,] data;
-            if (cwtFeature == CWTFeatures.Imaginary)
+            switch (cwtFeature)
             {
-                data = OutputCWT.ImagArray;
-            }
-            else if (cwtFeature == CWTFeatures.Real)
-            {
-                data = OutputCWT.RealArray;
-            }
-            else if (cwtFeature == CWTFeatures.Modulus)
-            {
-                data = OutputCWT.ModulusCalculation();
-            }
-            else
-            {
-                data = OutputCWT.PhaseCalculation();
+                case CWTFeatures.Imaginary:
+                    data = OutputCWT.ImagArray;
+                    break;
+                case CWTFeatures.Real:
+                    data = OutputCWT.RealArray;
+                    break;
+                case CWTFeatures.Modulus:
+                    data = OutputCWT.ModulusCalculation();
+                    break;
+                default:
+                    data = OutputCWT.PhaseCalculation();
+                    break;
             }
             string title;
             if (cwtFeature == CWTFeatures.Imaginary || cwtFeature == CWTFeatures.Real)
@@ -378,21 +401,30 @@ namespace FCWTNET
                         break;
                 }
                 int rawFrequencyIndex = Array.BinarySearch(FrequencyAxis.WaveletCenterFrequencies, singleFrequency);
-                int frequencyIndex = rawFrequencyIndex < 0 ? -rawFrequencyIndex + 1 : rawFrequencyIndex;
+                int frequencyIndex = rawFrequencyIndex < 0 ? -rawFrequencyIndex - 1 : rawFrequencyIndex;
                 indFrequencies = new int[] {frequencyIndex};
             }
-            int maxColumns = 100000;
-            double[,] finalData;
             double[] finalTimeAxis;
-            if (data.GetLength(1) >= maxColumns)
+            if (startTime.HasValue && endTime.HasValue)
             {
-                CWTExtensions.Time2DArrayCompression(data, out finalData, maxColumns);
-                CWTExtensions.TimeAxisCompression(TimeAxis, out finalTimeAxis, maxColumns);
+                double[,] timeWindowedData;
+                CWTExtensions.TimeWindowing((double)startTime, (double)endTime, TimeAxis, data, out finalTimeAxis, out timeWindowedData);
+                data = timeWindowedData;
             }
             else
             {
-                finalData = data;
                 finalTimeAxis = TimeAxis;
+            }
+            int maxColumns = 100000;
+
+            if (data.GetLength(1) >= maxColumns)
+            {
+                double[,] compressedData;
+                double[] compressedTimeAxis;
+                CWTExtensions.Time2DArrayCompression(data, out compressedData, maxColumns);
+                CWTExtensions.TimeAxisCompression(finalTimeAxis, out compressedTimeAxis, maxColumns);
+                data = compressedData;
+                finalTimeAxis = compressedTimeAxis;
             }
             double[,] xyReflectedData = new double[data.GetLength(1), data.GetLength(0)];
             for (int i = 0; i < data.GetLength(0); i++)
