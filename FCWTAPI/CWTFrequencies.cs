@@ -182,6 +182,24 @@ namespace FCWTNET
             }
             return CalculateIndicesForFrequencyRange(startFrequency, endFrequency);
         }
+
+        public void FrequencyWindowing(double startFrequency, double endFrequency, double[] plotFrequencyAxis,
+            double[,] data, FrequencyUnits frequencyUnits, out double[] windowedFrequencyAxis, out double[,] windowedData)
+        {
+            var frequencyIndexRange = CalculateIndicesForFrequencyRange(startFrequency, endFrequency, frequencyUnits);
+            int indexDifference = frequencyIndexRange.Item2 - frequencyIndexRange.Item1;
+            windowedData = new double[indexDifference + 1, data.GetLength(1)];
+            windowedFrequencyAxis = new double[indexDifference + 1];
+
+            for (int i = 0; i < indexDifference + 1; i++)
+            {
+                for (int j = 0; j < data.GetLength(1); j++)
+                {
+                    windowedData[i, j] = data[frequencyIndexRange.Item1 + i, j];
+                }
+                windowedFrequencyAxis[i] = plotFrequencyAxis[frequencyIndexRange.Item1 + i];
+            }
+        }
         public enum FrequencyUnits
         {
             WaveletFrequency,

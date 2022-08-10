@@ -51,5 +51,27 @@ namespace TestFCWTAPI
             Assert.AreEqual(rem2DivTestEdgePoint, compressedRem2Axis[2]);
 
         }
+        [Test]
+        public static void TestTimeWindowing()
+        {
+            double[,] testData = new double[,]
+            {
+                {1, 2, 3, 4, 5, 6},
+                {7, 8, 9, 10, 11, 12},
+                {13, 14, 15, 16, 17, 18}
+            };
+            double[] testTimeAxis = new double[] { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 };
+            double[,] windowedData;
+            double[] windowedTimeAxis;
+            CWTExtensions.TimeWindowing(0.2, 0.38, testTimeAxis, testData, out windowedTimeAxis, out windowedData);
+            Assert.AreEqual(testData[1, 3], windowedData[1, 2]);
+            Assert.AreEqual(3, windowedData.GetLength(1));
+            Assert.AreEqual(3, windowedTimeAxis.Length);
+            Assert.Throws<ArgumentException>(() => CWTExtensions.TimeWindowing(0.42, 0.2, testTimeAxis, testData, out windowedTimeAxis, out windowedData));
+            Assert.Throws<ArgumentOutOfRangeException>(() => CWTExtensions.TimeWindowing(0.01, 0.2, testTimeAxis, testData, out windowedTimeAxis, out windowedData));
+            Assert.Throws<ArgumentOutOfRangeException>(() => CWTExtensions.TimeWindowing(0.2, 0.9, testTimeAxis, testData, out windowedTimeAxis, out windowedData));
+            double[] badTimeAxis = new double[] { 0.1, 0.2, 0.3, 0.4, 0.5 };
+            Assert.Throws<ArgumentException>(() => CWTExtensions.TimeWindowing(0.2, 0.5, badTimeAxis, testData, out windowedTimeAxis, out windowedData));
+        }
     }
 }

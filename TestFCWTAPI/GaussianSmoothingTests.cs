@@ -130,7 +130,7 @@ namespace TestFCWTAPI
             Assert.Throws<ArgumentException>(() => GaussianSmoothing.GaussianConvolution(invalid2DArray, 1));
             double[,] test2DArray = new double[51, 51];
             // List of points to add to a test array
-            var pointArray = new (int, int, double)[] 
+            var pointArray = new (int, int, double)[]
             {
                 (8, 8, 1), // Generic point
                 (27, 8, -1), // Sample point with a negative value
@@ -167,7 +167,7 @@ namespace TestFCWTAPI
 
             }
             // Deviation of our test 2D Gaussian
-            double testDeviation = 1; 
+            double testDeviation = 1;
             // Calculates expected value of a point at the center of the 2D Gaussian
             double centerPoint = 1 / (2 * Math.PI * testDeviation);
             // Calculates expected value of a point 1 unit off from the center of the 2D Gaussian in any direction
@@ -175,7 +175,7 @@ namespace TestFCWTAPI
             // Calculates expected value of a point 1 unit off from the center in in x and y direction
             double diagonalPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(-2 / (2 * testDeviation * testDeviation));
             // Calculats the Gaussian convolution of our test 2D Gaussian with tesd2DArray
-            double[,] testBlurredArray = GaussianSmoothing.GaussianConvolution(test2DArray, testDeviation);             
+            double[,] testBlurredArray = GaussianSmoothing.GaussianConvolution(test2DArray, testDeviation);
             for (int p = 0; p < 4; p++)
             {
                 // Checks all the center point values for correctness
@@ -183,7 +183,7 @@ namespace TestFCWTAPI
                 // Checks all the adjacent point values for correctness
                 Assert.AreEqual(adjacentPoint * pointArray[p].Item3, testBlurredArray[adjacentArray[p].Item1, adjacentArray[p].Item2], 0.001);
                 // Checks all the diagonal point values for correctness
-                Assert.AreEqual(diagonalPoint * pointArray[p].Item3, testBlurredArray[diagonalArray[p].Item1, diagonalArray[p].Item2], 0.001);                 
+                Assert.AreEqual(diagonalPoint * pointArray[p].Item3, testBlurredArray[diagonalArray[p].Item1, diagonalArray[p].Item2], 0.001);
             }
             /* 
              * Note: this guassian smoothing function does not preserve the the total "intensity" 
@@ -193,5 +193,26 @@ namespace TestFCWTAPI
              */
 
         }
-    }  
+        [Test]
+        public static void TestGaussianSmoothing1D()
+        {
+            double[] invalidArray = { 1, 2, 3, 4, 5 };
+            Assert.Throws<ArgumentException>(() => GaussianSmoothing.GaussianSmoothing1D(invalidArray, 1));
+            double[] testArray = new double[50];
+            testArray[2] = 1;
+            testArray[20] = 1;
+            testArray[49] = 1;
+            double testDeviation = 1;
+            double[] smoothedArray = GaussianSmoothing.GaussianSmoothing1D(testArray, 1);
+            double centerPoint = 1 / Math.Sqrt(2 * Math.PI * testDeviation);
+            double adjacentPoint = 1 / Math.Sqrt(2 * Math.PI * testDeviation) * Math.Exp(-(1 * 1) / (2 * testDeviation * testDeviation));
+            double sum = 0;
+            Assert.AreEqual(centerPoint, smoothedArray[2], 0.001);
+            Assert.AreEqual(centerPoint, smoothedArray[20], 0.001);
+            Assert.AreEqual(centerPoint, smoothedArray[49], 0.001);
+            Assert.AreEqual(adjacentPoint, smoothedArray[1], 0.001);
+            Assert.AreEqual(adjacentPoint, smoothedArray[21], 0.001);
+            Assert.AreEqual(adjacentPoint, smoothedArray[48], 0.001);
+        }
+    }
 }

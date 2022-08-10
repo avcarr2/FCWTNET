@@ -133,5 +133,40 @@ namespace TestFCWTAPI
             double waveletFrequency = cwtFrequencies.TrueFreqToWaveletFreq(testTrueFrequency);
             Assert.AreEqual(waveletFrequency, testWaveletFrequency);
         }
+        [Test]
+        public static void TestFrequencyWindowing()
+        {
+            double[] testValues = new double[1000];
+            double constant = 1D / 1000D * 2D * Math.PI;
+            for (int i = 0; i < 1000; i++)
+            {
+                double val = (double)i * constant;
+                testValues[i] = val;
+            }
+            double[] cosine = FunctionGenerator.TransformValues(testValues, FunctionGenerator.GenerateCosineWave);
+            CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false, 100000, 7.5e12);
+            cosCWT.PerformCWT();
+            cosCWT.CalculateFrequencyAxis();
+            cosCWT.FrequencyAxis.CalculateTrueFrequencies();
+            cosCWT.FrequencyAxis.CalculateMZValues();
+            double[] testPlotFrequencyAxis = cosCWT.FrequencyAxis.WaveletCenterFrequencies;
+            double[,] testCWTData = cosCWT.OutputCWT.ModulusCalculation();
+            double[,] testFreqWindowedData;
+            double[] testWindowedFreqAxis;
+            cosCWT.FrequencyAxis.FrequencyWindowing(0.04909, 0.06278, testPlotFrequencyAxis, testCWTData,
+                CWTFrequencies.FrequencyUnits.WaveletFrequency, out testWindowedFreqAxis, out testFreqWindowedData);
+            Assert.AreEqual(72, testFreqWindowedData.GetLength(0));
+            Assert.AreEqual(testCWTData[70, 5], testFreqWindowedData[70, 5]);
+            Assert.AreEqual(72, testWindowedFreqAxis.Length);
+            double[] testEndWindowedFreqAxis;
+            double[,] testEndFreqWindowedData;
+            cosCWT.FrequencyAxis.FrequencyWindowing(3.1199, 3.13, testPlotFrequencyAxis, testCWTData,
+                CWTFrequencies.FrequencyUnits.WaveletFrequency, out testEndWindowedFreqAxis, out testEndFreqWindowedData);
+            Assert.AreEqual(testCWTData[1199, 5], testEndFreqWindowedData[1, 5]);
+            Assert.AreEqual(2, testEndWindowedFreqAxis.Length);
+            Assert.AreEqual(testPlotFrequencyAxis[1198], testEndWindowedFreqAxis[0]);
+            Assert.AreEqual(testPlotFrequencyAxis[1199], testEndWindowedFreqAxis[1]);
+
+        }
     }
 }

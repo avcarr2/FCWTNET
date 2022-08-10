@@ -24,6 +24,9 @@
     <None Update="TestDataFiles\badfile.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestDataFiles\ComplexTransient_protein_mixture_512ms.csv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestDataFiles\SampleTransient_Myo_z13.csv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

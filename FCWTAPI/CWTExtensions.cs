@@ -91,5 +91,36 @@ namespace FCWTNET
             }
             compressedData[compressedData.Length - 1] = finalPointSum / finalPointCount;
         }
+        public static void TimeWindowing(double startTime, double endTime, double[] timeAxis, double[,] data,
+            out double[] windowedTimeAxis, out double[,] windowedData)
+        {
+            if (startTime > endTime)
+            {
+                throw new ArgumentException("endTime must be greater than startTime", nameof(startTime));
+            }
+            if (startTime < timeAxis[0] || endTime > timeAxis[^1])
+            {
+                throw new ArgumentOutOfRangeException("Start and end times must be within the time range of the data");
+            }
+            if (data.GetLength(1) != timeAxis.Length)
+            {
+                throw new ArgumentException("timeAxis length must match the number of columns in the data", nameof(timeAxis));
+            }
+            int rawStartIndex = Array.BinarySearch(timeAxis, startTime);
+            int rawEndIndex = Array.BinarySearch(timeAxis, endTime);
+            int startIndex = rawStartIndex < 0 ? -rawStartIndex - 1 : rawStartIndex;
+            int endIndex = rawEndIndex < 0 ? -rawEndIndex - 1 : rawEndIndex;
+            int indexDifference = endIndex - startIndex;
+            windowedData = new double[data.GetLength(0), indexDifference + 1];
+            windowedTimeAxis = new double[indexDifference + 1];
+            for (int j = 0; j < indexDifference + 1; j++)
+            {
+                for (int i = 0; i < data.GetLength(0); i++)
+                {
+                    windowedData[i, j] = data[i, startIndex + j];                    
+                }
+                windowedTimeAxis[j] = timeAxis[startIndex + j];
+            }
+        }
     }
 }
