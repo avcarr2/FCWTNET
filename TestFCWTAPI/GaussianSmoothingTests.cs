@@ -284,7 +284,6 @@ namespace TestFCWTAPI
             double[] smoothedArray = GaussianSmoothing.GaussianSmoothing1D(testArray, 1);
             double centerPoint = 1 / Math.Sqrt(2 * Math.PI * testDeviation);
             double adjacentPoint = 1 / Math.Sqrt(2 * Math.PI * testDeviation) * Math.Exp(-(1 * 1) / (2 * testDeviation * testDeviation));
-            double sum = 0;
             Assert.AreEqual(centerPoint, smoothedArray[2], 0.001);
             Assert.AreEqual(centerPoint, smoothedArray[20], 0.001);
             Assert.AreEqual(centerPoint, smoothedArray[49], 0.001);
