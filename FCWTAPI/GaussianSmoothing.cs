@@ -104,7 +104,7 @@ namespace FCWTNET
             }
             return dim2Smoothing;
         }
-        public static double[,] AsymmetricGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation)
+        public static double[,] EllipticGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation)
         {
             if (inputData.GetLength(0) < (frequencyDeviation * 6 + 1) || inputData.GetLength(1) < (timeDeviation * 6 + 1))
             {

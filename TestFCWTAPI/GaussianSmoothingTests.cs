@@ -119,7 +119,7 @@ namespace TestFCWTAPI
             }
         }
         [Test]
-        public void TestGaussianConvolution()
+        public static void TestGaussianConvolution()
         {
             double[,] invalid2DArray = new double[,]
             {
@@ -169,11 +169,11 @@ namespace TestFCWTAPI
             // Deviation of our test 2D Gaussian
             double testDeviation = 1;
             // Calculates expected value of a point at the center of the 2D Gaussian
-            double centerPoint = 1 / (2 * Math.PI * testDeviation);
+            double centerPoint = 1 / (2 * Math.PI * Math.Pow(testDeviation, 2));
             // Calculates expected value of a point 1 unit off from the center of the 2D Gaussian in any direction
-            double adjacentPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(-(1 * 1) / (2 * testDeviation * testDeviation));
+            double adjacentPoint = 1 / (2 * Math.PI * Math.Pow(testDeviation, 2)) * Math.Exp(-(1 * 1) / (2 * testDeviation * testDeviation));
             // Calculates expected value of a point 1 unit off from the center in in x and y direction
-            double diagonalPoint = 1 / (2 * Math.PI * testDeviation) * Math.Exp(-2 / (2 * testDeviation * testDeviation));
+            double diagonalPoint = 1 / (2 * Math.PI * Math.Pow(testDeviation, 2)) * Math.Exp(-2 / (2 * testDeviation * testDeviation));
             // Calculats the Gaussian convolution of our test 2D Gaussian with tesd2DArray
             double[,] testBlurredArray = GaussianSmoothing.GaussianConvolution(test2DArray, testDeviation);
             for (int p = 0; p < 4; p++)
@@ -192,6 +192,84 @@ namespace TestFCWTAPI
              * that the sum of the original array equals the sum of the blurred array
              */
 
+        }
+        [Test]
+        public static void TestEllipticGaussianConvolution()
+        {
+            double[,] invalid2DArray = new double[,]
+            {
+                {1, 2, 3, 4, 5 },
+                {4, 5, 6, 7, 8 },
+                {9, 10, 11, 12, 13 },
+            };
+            Assert.Throws<ArgumentException>(() => GaussianSmoothing.GaussianConvolution(invalid2DArray, 1));
+            double testDim1Deviation = 1;
+            double testDim2Deviation = 2;
+            double[,] test2DArray = new double[51, 51];
+            // List of points to add to a test array
+            var pointArray = new (int, int, double)[]
+            {
+                (13, 13, 1), // Generic point
+                (27, 13, -1), // Sample point with a negative value
+                (2, 43, 1), // Sample point next to an edge
+                (50, 50, 1) // Sample point in a corner
+            };
+            double centerPoint = 1 / (2 * Math.PI * testDim1Deviation * testDim2Deviation);
+            // Generates a 2D array containing all points from pointArray
+            for (int i = 0; i < 51; i++)
+            {
+                for (int j = 0; j < 51; j++)
+                {
+                    for (int t = 0; t < 4; t++)
+                        if (i == pointArray[t].Item1 && j == pointArray[t].Item2)
+                        {
+                            test2DArray[i, j] = pointArray[t].Item3;
+                        }
+                }
+            }
+
+            // Generates a list of coordinates to points adjacent to the points in pointArray off by 1 unit in the higher dimension
+            var adjacentDim1Array = new (int, int, double)[]
+            {
+                (12, 13, 1),
+                (28, 13, -1),
+                (3, 43, 1),
+                (49, 50, 1)
+            };
+            double dim1AdjacentPoint = 1 / (2 * Math.PI * testDim1Deviation * testDim2Deviation) * Math.Exp(-1 / (2 * Math.Pow(testDim1Deviation, 2)));
+
+            // Generates a list of coordinates to points adjacent to the points in pointArray off by 1 unit in the lower dimension
+            var adjacentDim2Array = new (int, int, double)[]
+            {
+                (13, 14, 1),
+                (27, 12, -1),
+                (2, 42, 1), 
+                (50, 49, 1)
+
+            };
+            double dim2AdjacentPoint = 1 / (2 * Math.PI * testDim1Deviation * testDim2Deviation) * Math.Exp(-1 / (2 * Math.Pow(testDim2Deviation, 2)));
+
+            // Generates a list of coordinates to points diagonal to the points in pointArray
+            var diagonalArray = new (int, int, double)[]
+            {
+                (14, 14, 1),
+                (26, 14, -1),
+                (1, 42, 1),
+                (49, 49, 1)
+            };
+            double diagonalPoint = 1 / (2 * Math.PI * testDim1Deviation * testDim2Deviation) * Math.Exp(-1 * ((1 / (2 * Math.Pow(testDim1Deviation, 2))) + (1 / (2* Math.Pow(testDim2Deviation, 2)))));
+            double[,] testAsymmetricalBlurArray = GaussianSmoothing.EllipticGaussianConvolution(test2DArray, testDim1Deviation, testDim2Deviation);
+            for(int p = 0; p < 4; p++)
+            {
+                // Checks all the center point values for correctness
+                Assert.AreEqual(centerPoint * pointArray[p].Item3, testAsymmetricalBlurArray[pointArray[p].Item1, pointArray[p].Item2], 0.001);
+                // Checks all the adjacent dim1 point values for correctness
+                Assert.AreEqual(dim1AdjacentPoint * pointArray[p].Item3, testAsymmetricalBlurArray[adjacentDim1Array[p].Item1, adjacentDim1Array[p].Item2], 0.001);
+                // Checks all the adjacent dim2 point values for correctness
+                Assert.AreEqual(dim2AdjacentPoint * pointArray[p].Item3, testAsymmetricalBlurArray[adjacentDim2Array[p].Item1, adjacentDim2Array[p].Item2], 0.001);
+                // Checks all the diagonal point values for correctness
+                Assert.AreEqual(diagonalPoint * pointArray[p].Item3, testAsymmetricalBlurArray[diagonalArray[p].Item1, diagonalArray[p].Item2], 0.001);
+            }
         }
         [Test]
         public static void TestGaussianSmoothing1D()
