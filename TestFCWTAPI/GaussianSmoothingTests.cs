@@ -202,7 +202,7 @@ namespace TestFCWTAPI
                 {4, 5, 6, 7, 8 },
                 {9, 10, 11, 12, 13 },
             };
-            Assert.Throws<ArgumentException>(() => GaussianSmoothing.GaussianConvolution(invalid2DArray, 1));
+            Assert.Throws<ArgumentException>(() => GaussianSmoothing.EllipticGaussianConvolution(invalid2DArray, 1, 2));
             double testDim1Deviation = 1;
             double testDim2Deviation = 2;
             double[,] test2DArray = new double[51, 51];
