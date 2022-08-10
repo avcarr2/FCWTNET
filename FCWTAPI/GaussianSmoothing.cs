@@ -70,6 +70,7 @@ namespace FCWTNET
             }
             return normalizedMatrix;
         }
+
         /// <summary>
         /// Performs the 2D Gaussian smoothing on a given 2D array
         /// Applies the smoothing operation in x then y with 1D Kernels

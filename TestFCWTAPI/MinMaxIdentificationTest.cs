@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using FCWTNET;
 using System.IO;
 using NUnit.Framework;
-using OxyPlot;
 
 namespace TestFCWTAPI
 {
@@ -48,6 +47,8 @@ namespace TestFCWTAPI
             ComplexTestCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "complexTransient_modulus.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, "complexTransient");
             ComplexTestCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "zoomed_Band2complexTransient_modulus.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, "complexTransient", 0.06, 0.08, 19, 30);
             ComplexTestCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "zoomed_Band1complexTransient_modulus.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, "complexTransient", 0.02, 0.04, 19, 30);
+
+
         }
     }
 }
