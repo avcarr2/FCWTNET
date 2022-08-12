@@ -105,6 +105,14 @@ namespace FCWTNET
             }
             return dim2Smoothing;
         }
+        /// <summary>
+        /// Performs 2D Gaussian smoothing using 
+        /// </summary>
+        /// <param name="inputData"></param>
+        /// <param name="frequencyDeviation"></param>
+        /// <param name="timeDeviation"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static double[,] EllipticGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation)
         {
             if (inputData.GetLength(0) < (frequencyDeviation * 6 + 1) || inputData.GetLength(1) < (timeDeviation * 6 + 1))
@@ -132,6 +140,63 @@ namespace FCWTNET
             }
             return timeSmoothing;
         }
+        public static double[] SliceEllipticGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation, int sliceIndex, int dimension)
+        {
+            if (inputData.GetLength(0) < (frequencyDeviation * 6 + 1) || inputData.GetLength(1) < (timeDeviation * 6 + 1))
+            {
+                throw new ArgumentException("Matrix may not be smaller than the convoluting Gaussian kernel");
+            }
+            if (dimension != 0 && dimension != 1)
+            {
+                throw new ArgumentException("Dimension can only be 0 and 1", nameof(dimension));
+            }
+            double[,] frequencyKernel = CalculateNormalized1DSampleKernel(frequencyDeviation);
+            double[,] timeKernel = CalculateNormalized1DSampleKernel(timeDeviation);
+            double[,] sliceDirectionSmoothing;// = new double[inputData.GetLength(0), inputData.GetLength(1)];
+            double[] smoothedSlice;// = new double[inputData.GetLength(0), inputData.GetLength(1)];
+            // Calculates the 1D kernel to be used for smoothing
+            if (dimension == 0)
+            {
+                // Calculates each point in the x direction
+                int freqSize = (int)Math.Ceiling(frequencyDeviation * 3) * 2 + 1;
+                sliceDirectionSmoothing = new double[freqSize, inputData.GetLength(1)];
+                smoothedSlice = new double[inputData.GetLength(1)];
+                for (int i = 0; i < freqSize; i++)
+                {
+                    int dataIndex = sliceIndex + i - freqSize / 2;
+                    for (int j = 0; j < inputData.GetLength(1); j++)
+                    {
+                        sliceDirectionSmoothing[i, j] = ProcessPoint(inputData, dataIndex, j, frequencyKernel, 0);
+                    }
+                }
+                for (int j = 0; j < inputData.GetLength(1); j++)
+                {
+                    smoothedSlice[j] = ProcessPoint(sliceDirectionSmoothing, freqSize / 2, j, timeKernel, 1);
+                }
+                return smoothedSlice;
+            }
+            else
+            {
+                // Calculates each point in the x direction
+                int timeSize = (int)Math.Ceiling(timeDeviation * 3) * 2 + 1;
+                sliceDirectionSmoothing = new double[inputData.GetLength(0), timeSize];
+                smoothedSlice = new double[inputData.GetLength(0)];
+                for (int i = 0; i < inputData.GetLength(0); i++)
+                {
+                    for (int j = 0; j < timeSize; j++)
+                    {
+                        int dataIndex = sliceIndex + j - timeSize / 2;
+                        sliceDirectionSmoothing[i, j] = ProcessPoint(inputData, i, dataIndex, frequencyKernel, 0);
+                    }
+                }
+                for (int i = 0; i < inputData.GetLength(0); i++)
+                {
+                    smoothedSlice[i] = ProcessPoint(sliceDirectionSmoothing, i, timeSize / 2, timeKernel, 1);
+                }
+                return smoothedSlice;
+            }
+        }
+
         /// <summary>
         /// Method to process each individual point of a given double[,] array 
         /// </summary>
