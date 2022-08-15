@@ -106,11 +106,11 @@ namespace FCWTNET
             return dim2Smoothing;
         }
         /// <summary>
-        /// Performs 2D Gaussian smoothing using 
+        /// Performs 2D Gaussian smoothing using an elliptic Gaussian kernel
         /// </summary>
         /// <param name="inputData"></param>
-        /// <param name="frequencyDeviation"></param>
-        /// <param name="timeDeviation"></param>
+        /// <param name="frequencyDeviation">Deviation of the convolving Gaussian in the frequency axis</param>
+        /// <param name="timeDeviation">Deviation of the convolving Gaussian in the time axis</param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
         public static double[,] EllipticGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation)
@@ -140,6 +140,15 @@ namespace FCWTNET
             }
             return timeSmoothing;
         }
+        /// <summary>
+        /// Performs Elliptic Gaussian smoothing on individual rows or columns of an array
+        /// 
+        /// </summary>
+        /// <param name="inputData"></param>
+        /// <param name="frequencyDeviation">Deviation of the convolving Gaussian in the frequency axis</param>
+        /// <param name="timeDeviation">Deviation of the convolving Gaussian in the time axis</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
         public static double[] SliceEllipticGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation, int sliceIndex, int dimension)
         {
             if (inputData.GetLength(0) < (frequencyDeviation * 6 + 1) || inputData.GetLength(1) < (timeDeviation * 6 + 1))
@@ -152,8 +161,8 @@ namespace FCWTNET
             }
             double[,] frequencyKernel = CalculateNormalized1DSampleKernel(frequencyDeviation);
             double[,] timeKernel = CalculateNormalized1DSampleKernel(timeDeviation);
-            double[,] sliceDirectionSmoothing;// = new double[inputData.GetLength(0), inputData.GetLength(1)];
-            double[] smoothedSlice;// = new double[inputData.GetLength(0), inputData.GetLength(1)];
+            double[,] sliceDirectionSmoothing;
+            double[] smoothedSlice;
             // Calculates the 1D kernel to be used for smoothing
             if (dimension == 0)
             {
