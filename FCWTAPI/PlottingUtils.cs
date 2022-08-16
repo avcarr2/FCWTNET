@@ -238,6 +238,74 @@ namespace FCWTNET
             }
             return GenerateXYPlotCWT(data, rowIndices, defaultTimeAxis, defaultFrequencyAxis, plotTitle, mode, customTitle);
         }
+        public static PlotModel Plot1DArray(double[] data)
+        {
+            var plotModel = new PlotModel();
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                MinimumPadding = 0.05,
+                MaximumPadding = 0.05,
+                Title = "Index",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10,
+                Minimum = 0,
+                Maximum = data.Length - 1,
+            });
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                MinimumPadding = 0.05,
+                MaximumPadding = 0.05,
+                Title = "Intensity",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
+            });
+            LineSeries dataSeries = new LineSeries();
+            for (int i = 0; i < data.Length; i++)
+            {
+                dataSeries.Points.Add(new DataPoint(i, data[i]));
+            }
+            plotModel.Series.Add(dataSeries);
+            return plotModel;
+
+        }
+        public static PlotModel PlotSortedPointDictionary(SortedDictionary<int, double> data)
+        {
+            var plotModel = new PlotModel();
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                MinimumPadding = 0.05,
+                MaximumPadding = 0.05,
+                Title = "Index",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10,
+                Minimum = data.Keys.First(),
+                Maximum = data.Keys.Last() - 1,
+            });
+            plotModel.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                MinimumPadding = 0.05,
+                MaximumPadding = 0.05,
+                Title = "Intensity",
+                FontSize = 14,
+                TitleFontSize = 16,
+                AxisTitleDistance = 10
+            });
+            LineSeries dataSeries = new LineSeries();
+            foreach(var point in data)
+            {
+                dataSeries.Points.Add(new DataPoint(point.Key, point.Value));
+            }
+            plotModel.Series.Add(dataSeries);
+            return plotModel;
+        }
+
         /// <summary>
         /// Exports generated plots to PDF files
         /// Expansion to this method should include options for other file formats
@@ -247,6 +315,7 @@ namespace FCWTNET
         /// <param name="plotWidth">Width of the plot</param>
         /// <param name="plotHeight">Height of the plot</param>
         /// <exception cref="ArgumentException"></exception>
+
         public static void ExportPlotPDF(PlotModel plotModel, string filePath, int plotWidth = 700, int plotHeight = 600)
         {
             if (Path.GetExtension(filePath) == null)

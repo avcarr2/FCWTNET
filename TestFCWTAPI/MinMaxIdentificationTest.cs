@@ -57,7 +57,7 @@ namespace TestFCWTAPI
             double[,] data = ComplexTestCWT.OutputCWT.ModulusCalculation();
             double[,] timeWindowedData;
             double[] dummyTimeAx;
-            CWTExtensions.TimeWindowing(0.06, 0.08, ComplexTestCWT.TimeAxis, data, out dummyTimeAx, out timeWindowedData);
+            CWTExtensions.TimeWindowing(0.05, 0.09, ComplexTestCWT.TimeAxis, data, out dummyTimeAx, out timeWindowedData);
             data = timeWindowedData;
             double[,] freqWindowedData;
             double[] windowedFreqAxis;
@@ -84,6 +84,91 @@ namespace TestFCWTAPI
             int[] targetStandardBeatIndex = new int[] { -1 * Array.BinarySearch(windowedFreqAxis, 22.6) - 1 };
             var xyPlotStandardBeat = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, targetStandardBeatIndex, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single, "Slice at 22.6");
             PlottingUtils.ExportPlotPDF(xyPlotStandardBeat, beatStdBeatFilePath);
+
+        }
+        [Test]
+        public void SlicePlottingTest()
+        {
+            double[,] data = ComplexTestCWT.OutputCWT.ModulusCalculation();
+            double[,] timeWindowedData;
+            double[] dummyTimeAx;
+            CWTExtensions.TimeWindowing(0.04, 0.11, ComplexTestCWT.TimeAxis, data, out dummyTimeAx, out timeWindowedData);
+            data = timeWindowedData;
+            double[,] freqWindowedData;
+            double[] windowedFreqAxis;
+            ComplexTestCWT.FrequencyAxis.FrequencyWindowing(21, 23.5, ComplexTestCWT.FrequencyAxis.WaveletCenterFrequencies, data, CWTFrequencies.FrequencyUnits.WaveletFrequency, out windowedFreqAxis, out freqWindowedData);
+            data = freqWindowedData;
+            int targetBeatInBeatIndex = -1 * Array.BinarySearch(windowedFreqAxis, 22.2) - 1;
+            int targetStandardBeatIndex = -1 * Array.BinarySearch(windowedFreqAxis, 22.6) - 1;
+            double[] rawBeatingSlice = new double[data.GetLength(1)];
+            double[] rawStandardSlice = new double[data.GetLength(1)];
+            for (int i = 0; i < data.GetLength(1); i++)
+            {
+                rawStandardSlice[i] = data[targetStandardBeatIndex, i];
+                rawBeatingSlice[i] = data[targetBeatInBeatIndex, i];
+            }
+            double[] smoothedBeatingSlice = GaussianSmoothing.SliceEllipticGaussianConvolution(data, 1, 700, targetBeatInBeatIndex, 0);
+            double[] smoothedStandardSlice = GaussianSmoothing.SliceEllipticGaussianConvolution(data, 1, 700, targetStandardBeatIndex, 0);
+            var smoothedBeatingSlicePlot = PlottingUtils.Plot1DArray(smoothedBeatingSlice);
+            var smoothedStandardSlicePlot = PlottingUtils.Plot1DArray(smoothedStandardSlice);
+            string beatingSmoothSliceFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "beatingSliceSmoothed.pdf");
+            string standardSmoothSliceFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "standardSliceSmoothed.pdf");
+            PlottingUtils.ExportPlotPDF(smoothedStandardSlicePlot, standardSmoothSliceFilePath);
+            PlottingUtils.ExportPlotPDF(smoothedBeatingSlicePlot, beatingSmoothSliceFilePath);
+            
+            double[] beatingSliceDeriv = MinMaxIdentification.StandardSliceDerivative(smoothedBeatingSlice, 5);
+            var beatingSliceDerivPlot = PlottingUtils.Plot1DArray(beatingSliceDeriv);
+            string beatingSliceDerivFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "beatingSliceDeriv5dist.pdf");
+            PlottingUtils.ExportPlotPDF(beatingSliceDerivPlot, beatingSliceDerivFilePath);
+
+            double[] standardSliceDeriv = MinMaxIdentification.StandardSliceDerivative(smoothedStandardSlice, 5);
+            var standardSliceDerivPlot = PlottingUtils.Plot1DArray(standardSliceDeriv);
+            string standardSliceDerivFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "standardSliceDeriv5dist.pdf");
+            PlottingUtils.ExportPlotPDF(standardSliceDerivPlot, standardSliceDerivFilePath);
+            double[] smoothStdSliceDeriv = GaussianSmoothing.GaussianSmoothing1D(standardSliceDeriv, 1000);
+            var stdSmoothSliceDerivPlot = PlottingUtils.Plot1DArray(smoothStdSliceDeriv);
+            string smoothStdSliceDerivPath = Path.Combine(ComplexTestCWT.WorkingPath, "smooth1000StDSliceDeriv5dist.pdf");
+            PlottingUtils.ExportPlotPDF(stdSmoothSliceDerivPlot, smoothStdSliceDerivPath);
+
+        }
+        [Test]
+        public void TestIntensityFiltering()
+        {
+            double[,] data = ComplexTestCWT.OutputCWT.ModulusCalculation();
+            double[,] timeWindowedData;
+            double[] dummyTimeAx;
+            CWTExtensions.TimeWindowing(0.04, 0.11, ComplexTestCWT.TimeAxis, data, out dummyTimeAx, out timeWindowedData);
+            data = timeWindowedData;
+            double[,] freqWindowedData;
+            double[] windowedFreqAxis;
+            ComplexTestCWT.FrequencyAxis.FrequencyWindowing(21, 23.5, ComplexTestCWT.FrequencyAxis.WaveletCenterFrequencies, data, CWTFrequencies.FrequencyUnits.WaveletFrequency, out windowedFreqAxis, out freqWindowedData);
+            data = freqWindowedData;
+            int targetBeatInBeatIndex = -1 * Array.BinarySearch(windowedFreqAxis, 22.2) - 1;
+            int targetStandardBeatIndex = -1 * Array.BinarySearch(windowedFreqAxis, 22.6) - 1;
+            double[] rawBeatingSlice = new double[data.GetLength(1)];
+            double[] rawStandardSlice = new double[data.GetLength(1)];
+            for (int i = 0; i < data.GetLength(1); i++)
+            {
+                rawStandardSlice[i] = data[targetStandardBeatIndex, i];
+                rawBeatingSlice[i] = data[targetBeatInBeatIndex, i];
+            }
+            double[] smoothedStandardSlice = GaussianSmoothing.SliceEllipticGaussianConvolution(data, 1, 700, targetStandardBeatIndex, 0);
+            var intFilteredStandardSlice = MinMaxIdentification.IndexLinkedIntensityFiltering(smoothedStandardSlice, 0.2);
+            var intFiltStdPlot = PlottingUtils.PlotSortedPointDictionary(intFilteredStandardSlice);
+            string standardSliceFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "intFiltStdSlicePlot.pdf");
+            PlottingUtils.ExportPlotPDF(intFiltStdPlot, standardSliceFilePath);
+            var downsampledStdDeriv = MinMaxIdentification.DownsampledSliceDerivitive(intFilteredStandardSlice, 200);
+            var dsampledDerivPlot = PlottingUtils.PlotSortedPointDictionary(downsampledStdDeriv);
+            string standardDerivFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "StdSliceDownsampledDeriv200Deriv.pdf");
+            PlottingUtils.ExportPlotPDF(dsampledDerivPlot, standardDerivFilePath);
+            var smoothedStdDeriv = MinMaxIdentification.DownsampledDerivitiveSmoothing(downsampledStdDeriv, 1000, 200);
+            var smoothedDerivPlot = PlottingUtils.PlotSortedPointDictionary(smoothedStdDeriv);
+            var smoothedStdDerivFile = Path.Combine(ComplexTestCWT.WorkingPath, "smoothed1000dsampled200derivStd.pdf");
+            PlottingUtils.ExportPlotPDF(smoothedDerivPlot, smoothedStdDerivFile);
+            var secondStdDeriv = MinMaxIdentification.DownsampledSliceDerivitive(smoothedStdDeriv, 4);
+            var secondDerivPlot = PlottingUtils.PlotSortedPointDictionary(secondStdDeriv);
+            var secondDerivFile = Path.Combine(ComplexTestCWT.WorkingPath, "smoothed1000ds200secondDeriv.pdf");
+            PlottingUtils.ExportPlotPDF(secondDerivPlot, secondDerivFile);
 
         }
     }
