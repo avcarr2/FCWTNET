@@ -80,12 +80,13 @@ namespace FCWTNET
             }
             return derivitivePoints;
         }
-        public static SortedDictionary<int, double> StandardDerivative(SortedDictionary<int, double> inputData, int derivativeDistance, int? originalDerivativeDistance = null)
+        public static SortedDictionary<int, double> StandardDerivative(SortedDictionary<int, double> inputData, int? originalDerivativeDistance = null)
         {
             int prevIndex = -1;
-            int counter = -1;
             SortedDictionary<int, double> derivitivePoints = new SortedDictionary<int, double>();
             int indexSpacing;
+            KeyValuePair<int, double> oneEarlierPoint = new KeyValuePair<int, double>(-1, 0);
+            KeyValuePair<int, double> twoEarlierPoint = new KeyValuePair<int, double>(-1, 0);
             if (!originalDerivativeDistance.HasValue)
             {
                 indexSpacing = 1;
@@ -96,11 +97,26 @@ namespace FCWTNET
             }
             foreach(var point in inputData)
             {
+                // Checks that we're still in the same packet
                 if (prevIndex == -1 || prevIndex == point.Key - indexSpacing)
                 {
-
+                    if (oneEarlierPoint.Key != -1 && twoEarlierPoint.Key != -1)
+                    {
+                        double derivitiveValue = (point.Value - twoEarlierPoint.Value) / (point.Key - twoEarlierPoint.Key);
+                        int derivitiveIndex = oneEarlierPoint.Key;
+                        derivitivePoints.Add(derivitiveIndex, derivitiveValue);
+                    }
+                    oneEarlierPoint = point;
+                    twoEarlierPoint = oneEarlierPoint;
+                }
+                else
+                {
+                    prevIndex = -1;
+                    oneEarlierPoint = new KeyValuePair<int, double>(-1, 0);
+                    twoEarlierPoint = new KeyValuePair<int, double>(-1, 0);
                 }
             }
+            return derivitivePoints;
             
         }
         public static SortedDictionary<int, double> DownsampledDerivitiveSmoothing(SortedDictionary<int, double> downsampledDerivative, double derivativeSmoothingDeviation, int derivativeDistance)

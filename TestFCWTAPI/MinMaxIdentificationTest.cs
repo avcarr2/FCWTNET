@@ -132,7 +132,7 @@ namespace TestFCWTAPI
 
         }
         [Test]
-        public void TestIntensityFiltering()
+        public void TestDerivitiveAnalysis()
         {
             double[,] data = ComplexTestCWT.OutputCWT.ModulusCalculation();
             double[,] timeWindowedData;
@@ -165,11 +165,10 @@ namespace TestFCWTAPI
             var smoothedDerivPlot = PlottingUtils.PlotSortedPointDictionary(smoothedStdDeriv);
             var smoothedStdDerivFile = Path.Combine(ComplexTestCWT.WorkingPath, "smoothed1000dsampled200derivStd.pdf");
             PlottingUtils.ExportPlotPDF(smoothedDerivPlot, smoothedStdDerivFile);
-            var secondStdDeriv = MinMaxIdentification.DownsampledSliceDerivitive(smoothedStdDeriv, 4);
+            var secondStdDeriv = MinMaxIdentification.StandardDerivative(smoothedStdDeriv, 200);
             var secondDerivPlot = PlottingUtils.PlotSortedPointDictionary(secondStdDeriv);
-            var secondDerivFile = Path.Combine(ComplexTestCWT.WorkingPath, "smoothed1000ds200secondDeriv.pdf");
-            PlottingUtils.ExportPlotPDF(secondDerivPlot, secondDerivFile);
-
+            var secondDerivFile = Path.Combine(ComplexTestCWT.WorkingPath, "smoothedDerivandsecondderiv.pdf");
+            PlottingUtils.ExportPlotPDF(secondDerivPlot, secondDerivFile);            
         }
     }
 }
