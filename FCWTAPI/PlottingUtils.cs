@@ -58,8 +58,16 @@ namespace FCWTNET
         }
         public static PlotModel GenerateCWTHeatMap(double[,] data, string plotTitle)
         {
-            double[] defaultTimeAxis = new double[data.GetLength(1)];
-            double[] defaultFrequencyAxis = new double[data.GetLength(0)];
+            double[] defaultTimeAxis = new double[data.GetLength(0)];
+            double[] defaultFrequencyAxis = new double[data.GetLength(1)];
+            for (int i = 0; i < data.GetLength(1); i++)
+            {
+                defaultFrequencyAxis[i] = Math.Pow(2, 1 + (0.001* i));
+            }
+            for (int i = 0; i < data.GetLength(0); i++)
+            {
+                defaultTimeAxis[i] = i;
+            }
             return GenerateCWTHeatMap(data, plotTitle, defaultTimeAxis, defaultFrequencyAxis);
         }
         /// <summary>
@@ -101,11 +109,18 @@ namespace FCWTNET
         }
         public static PlotModel GenerateCWTContourPlot(double[,] data, string plotTitle)
         {
-            double[] defaultTimeAxis = new double[data.GetLength(1)];
-            double[] defaultFrequencyAxis = new double[data.GetLength(0)];
+            double[] defaultTimeAxis = new double[data.GetLength(0)];
+            double[] defaultFrequencyAxis = new double[data.GetLength(1)];
+            for (int i = 0; i < data.GetLength(1); i++)
+            {
+                defaultFrequencyAxis[i] = Math.Pow(2, 1 + (0.001 * i));
+            }
+            for (int i = 0; i < data.GetLength(0); i++)
+            {
+                defaultTimeAxis[i] = i;
+            }
             return GenerateCWTContourPlot(data, plotTitle, defaultTimeAxis, defaultFrequencyAxis);
         }
-
         public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, double[] timeAxis, double[] freqAxis, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
         {
             string actualTitle;
@@ -211,9 +226,17 @@ namespace FCWTNET
         }
         public static PlotModel GenerateXYPlotCWT(double[,] data, int[] rowIndices, PlotTitles plotTitle, XYPlotOptions mode, string? customTitle = null)
         {
-            double[] defaultTimeAxis = new double[data.GetLength(1)];
-            double[] defaultFrequencyAxis = new double[data.GetLength(0)];
-            return GenerateXYPlotCWT(data, rowIndices, defaultTimeAxis, defaultFrequencyAxis, plotTitle, mode);
+            double[] defaultTimeAxis = new double[data.GetLength(0)];
+            double[] defaultFrequencyAxis = new double[data.GetLength(1)];
+            for (int i = 0; i < data.GetLength(1); i++)
+            {
+                defaultFrequencyAxis[i] = Math.Pow(2, 1 + (0.001 * i));
+            }
+            for (int i = 0; i < data.GetLength(0); i++)
+            {
+                defaultTimeAxis[i] = i;
+            }
+            return GenerateXYPlotCWT(data, rowIndices, defaultTimeAxis, defaultFrequencyAxis, plotTitle, mode, customTitle);
         }
         /// <summary>
         /// Exports generated plots to PDF files

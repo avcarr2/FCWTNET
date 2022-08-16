@@ -65,6 +65,8 @@ namespace TestFCWTAPI
             }
             var testHeatMap = PlottingUtils.GenerateCWTHeatMap(testData, "Test Heatmap", timeAxis, freqAxis);
             PlottingUtils.ExportPlotPDF(testHeatMap, "testCWTheatmap.pdf");
+            var noAxesHeatMap = PlottingUtils.GenerateCWTHeatMap(testData, "Test Heatmap");
+            PlottingUtils.ExportPlotPDF(noAxesHeatMap, "testNoAxesCWTheatmap.pdf");
         }
         [Test]
         public void TestGenerateCWTContourPlot()
@@ -79,6 +81,8 @@ namespace TestFCWTAPI
             }
             var testContour = PlottingUtils.GenerateCWTContourPlot(testData, "Test Contour", timeAxis, freqAxis);
             PlottingUtils.ExportPlotPDF(testContour, "testCWTcontour.pdf");
+            var noAxesContourMap = PlottingUtils.GenerateCWTContourPlot(testData, "Test Contour");
+            PlottingUtils.ExportPlotPDF(testContour, "testNoAxesCWTcontour.pdf");
         }
         [Test]
         public void TestGenerateXYPlotCWT()
@@ -97,6 +101,7 @@ namespace TestFCWTAPI
             var testEvolutionPlot = PlottingUtils.GenerateXYPlotCWT(testData, testMultiple, timeAxis, freqAxis, PlottingUtils.PlotTitles.Evolution, PlottingUtils.XYPlotOptions.Evolution);
             var testSinglePlot = PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, freqAxis, PlottingUtils.PlotTitles.Single, PlottingUtils.XYPlotOptions.Evolution);
             var testCustomTitle = PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, freqAxis, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single, "Custom Title");
+            var testNoAxesEvolution = PlottingUtils.GenerateXYPlotCWT(testData, testMultiple, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Evolution, "NoAxesEvolution");
             Assert.Throws<ArgumentNullException>(() => PlottingUtils.GenerateXYPlotCWT(testData, testSingle, timeAxis, freqAxis, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single));
             double[] badTimeAxis = new double[980];
             double[] badFreqAxis = new double[980];
@@ -106,7 +111,7 @@ namespace TestFCWTAPI
             PlottingUtils.ExportPlotPDF(testEvolutionPlot, "testevolutionCWT.pdf");
             PlottingUtils.ExportPlotPDF(testSinglePlot, "testsingleCWT.pdf");
             PlottingUtils.ExportPlotPDF(testCustomTitle, "customtitleCWT.pdf");
-
+            PlottingUtils.ExportPlotPDF(testNoAxesEvolution, "No_Axes_XY_Plot.pdf");
         }
     }
 

@@ -36,6 +36,7 @@ namespace TestFCWTAPI
             complexTransientCWT.CalculateFrequencyAxis();
             ComplexTestCWT = complexTransientCWT;
         }
+        [Ignore("Long test time")]
         [Test]
         // Test method for generating plots to carefully examine the CWT of the sample MS transient data
         public void PlotGeneration()
@@ -47,7 +48,42 @@ namespace TestFCWTAPI
             ComplexTestCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "complexTransient_modulus.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, "complexTransient");
             ComplexTestCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "zoomed_Band2complexTransient_modulus.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, "complexTransient", 0.06, 0.08, 19, 30);
             ComplexTestCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "zoomed_Band1complexTransient_modulus.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, "complexTransient", 0.02, 0.04, 19, 30);
-
+        }
+        [Ignore("Long test time")]
+        [Test]
+        // Test method to play around with smoothing
+        public void SmoothingTests()
+        {
+            double[,] data = ComplexTestCWT.OutputCWT.ModulusCalculation();
+            double[,] timeWindowedData;
+            double[] dummyTimeAx;
+            CWTExtensions.TimeWindowing(0.06, 0.08, ComplexTestCWT.TimeAxis, data, out dummyTimeAx, out timeWindowedData);
+            data = timeWindowedData;
+            double[,] freqWindowedData;
+            double[] windowedFreqAxis;
+            ComplexTestCWT.FrequencyAxis.FrequencyWindowing(21, 23.5, ComplexTestCWT.FrequencyAxis.WaveletCenterFrequencies, data, CWTFrequencies.FrequencyUnits.WaveletFrequency, out windowedFreqAxis, out freqWindowedData);
+            data = freqWindowedData;
+            double[,] smoothedData = GaussianSmoothing.EllipticGaussianConvolution(data, 1, 700);
+            //double[,] smoothedData = data;
+            double[,] xyReflectedData = new double[smoothedData.GetLength(1), smoothedData.GetLength(0)];
+            for (int i = 0; i < smoothedData.GetLength(0); i++)
+            {
+                for (int j = 0; j < smoothedData.GetLength(1); j++)
+                {
+                    xyReflectedData[j, i] = smoothedData[i, j];
+                }
+            }
+            var smoothedHeatMap = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, "SmoothedBand2");
+            string heatMapFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "smoothedHeatMap1freq700time.pdf");
+            PlottingUtils.ExportPlotPDF(smoothedHeatMap, heatMapFilePath);
+            string beatInBeatFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "beatinbeatSlice1f700t.pdf");
+            int[] targetBeatInBeatIndex = new int[] { -1 * Array.BinarySearch(windowedFreqAxis, 22.2) - 1 };
+            var xyPlotBeatInBeat = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, targetBeatInBeatIndex, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single, "Slice at 22.2");
+            PlottingUtils.ExportPlotPDF(xyPlotBeatInBeat, beatInBeatFilePath);
+            string beatStdBeatFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "standardBeatSlice1f700t.pdf");
+            int[] targetStandardBeatIndex = new int[] { -1 * Array.BinarySearch(windowedFreqAxis, 22.6) - 1 };
+            var xyPlotStandardBeat = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, targetStandardBeatIndex, PlottingUtils.PlotTitles.Custom, PlottingUtils.XYPlotOptions.Single, "Slice at 22.6");
+            PlottingUtils.ExportPlotPDF(xyPlotStandardBeat, beatStdBeatFilePath);
 
         }
     }
