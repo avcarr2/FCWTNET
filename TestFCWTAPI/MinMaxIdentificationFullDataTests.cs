@@ -9,7 +9,7 @@ using NUnit.Framework;
 
 namespace TestFCWTAPI
 {
-    public class MinMaxIdentificationTest
+    public class MinMaxIdentificationFullDataTests
     {
         public CWTObject MyoglobinTestCWT { get; set; }
         public CWTObject ComplexTestCWT { get; set; }
@@ -116,12 +116,12 @@ namespace TestFCWTAPI
             PlottingUtils.ExportPlotPDF(smoothedStandardSlicePlot, standardSmoothSliceFilePath);
             PlottingUtils.ExportPlotPDF(smoothedBeatingSlicePlot, beatingSmoothSliceFilePath);
             
-            double[] beatingSliceDeriv = MinMaxIdentification.StandardSliceDerivative(smoothedBeatingSlice, 5);
+            double[] beatingSliceDeriv = MinMaxIdentification.StandardArrayDerivative(smoothedBeatingSlice, 5);
             var beatingSliceDerivPlot = PlottingUtils.Plot1DArray(beatingSliceDeriv);
             string beatingSliceDerivFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "beatingSliceDeriv5dist.pdf");
             PlottingUtils.ExportPlotPDF(beatingSliceDerivPlot, beatingSliceDerivFilePath);
 
-            double[] standardSliceDeriv = MinMaxIdentification.StandardSliceDerivative(smoothedStandardSlice, 5);
+            double[] standardSliceDeriv = MinMaxIdentification.StandardArrayDerivative(smoothedStandardSlice, 5);
             var standardSliceDerivPlot = PlottingUtils.Plot1DArray(standardSliceDeriv);
             string standardSliceDerivFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "standardSliceDeriv5dist.pdf");
             PlottingUtils.ExportPlotPDF(standardSliceDerivPlot, standardSliceDerivFilePath);
@@ -157,11 +157,11 @@ namespace TestFCWTAPI
             var intFiltStdPlot = PlottingUtils.PlotSortedPointDictionary(intFilteredStandardSlice);
             string standardSliceFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "intFiltStdSlicePlot.pdf");
             PlottingUtils.ExportPlotPDF(intFiltStdPlot, standardSliceFilePath);
-            var downsampledStdDeriv = MinMaxIdentification.DownsampledSliceDerivitive(intFilteredStandardSlice, 200);
+            var downsampledStdDeriv = MinMaxIdentification.DownsampledSliceDerivative(intFilteredStandardSlice, 200);
             var dsampledDerivPlot = PlottingUtils.PlotSortedPointDictionary(downsampledStdDeriv);
             string standardDerivFilePath = Path.Combine(ComplexTestCWT.WorkingPath, "StdSliceDownsampledDeriv200Deriv.pdf");
             PlottingUtils.ExportPlotPDF(dsampledDerivPlot, standardDerivFilePath);
-            var smoothedStdDeriv = MinMaxIdentification.DownsampledDerivitiveSmoothing(downsampledStdDeriv, 1000, 200);
+            var smoothedStdDeriv = MinMaxIdentification.DownsampledDerivativeSmoothing(downsampledStdDeriv, 1000, 200);
             var smoothedDerivPlot = PlottingUtils.PlotSortedPointDictionary(smoothedStdDeriv);
             var smoothedStdDerivFile = Path.Combine(ComplexTestCWT.WorkingPath, "smoothed1000dsampled200derivStd.pdf");
             PlottingUtils.ExportPlotPDF(smoothedDerivPlot, smoothedStdDerivFile);
