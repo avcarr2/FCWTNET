@@ -86,6 +86,7 @@ namespace TestFCWTAPI
             PlottingUtils.ExportPlotPDF(xyPlotStandardBeat, beatStdBeatFilePath);
 
         }
+        [Ignore("Long test time")]
         [Test]
         public void SlicePlottingTest()
         {
@@ -131,6 +132,7 @@ namespace TestFCWTAPI
             PlottingUtils.ExportPlotPDF(stdSmoothSliceDerivPlot, smoothStdSliceDerivPath);
 
         }
+        [Ignore("Long test time")]
         [Test]
         public void TestDerivitiveAnalysis()
         {

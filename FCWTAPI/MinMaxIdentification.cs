@@ -9,6 +9,7 @@ namespace FCWTNET
 {
     public class MinMaxIdentification
     {
+        // This constructor is a WIP I'll fix it when I start finding relative maxima
         public double[,] InputData;
         public double FrequencySmoothingWidth;
         public double TimeSmoothingWidth;
@@ -25,9 +26,10 @@ namespace FCWTNET
         }
         /// <summary>
         /// Method to take derivatives of a 1D array with Δx based on the index
+        /// This method exists entirely for testing purposes
         /// </summary>
-        /// <param name="inputSlice">input 1D array</param>
-        /// <param name="derivativeDistance">distance on each side of the target point to select initial and final points</param>
+        /// <param name="inputSlice">Input 1D array</param>
+        /// <param name="derivativeDistance">Distance on each side of the target point to select initial and final points</param>
         /// <returns></returns>
         public static double[] StandardArrayDerivative(double[] inputSlice, int derivativeDistance)
         {
@@ -71,7 +73,7 @@ namespace FCWTNET
         /// This method is likely not parallelizable
         /// </summary>
         /// <param name="filteredData"></param>
-        /// <param name="derivativeDistance">distance on each side of the target point to select initial and final points</param>
+        /// <param name="derivativeDistance">Distance on each side of the target point to select initial and final points</param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
         public static SortedDictionary<int, double> DownsampledSliceDerivative(SortedDictionary<int, double> filteredData, int derivativeDistance)
@@ -97,7 +99,7 @@ namespace FCWTNET
                 else
                 {
                     prevIndex = -1;
-                    counter = -1;
+                    counter = 0;
                 }
             }
             if (derivativePoints.Count == 0)
@@ -144,20 +146,21 @@ namespace FCWTNET
                         derivativePoints.Add(derivativeIndex, derivativeValue);
                     }
                     // Updates oneEarlierPoint and twoEarlierPoint
-                    oneEarlierPoint = point;
                     twoEarlierPoint = oneEarlierPoint;
+                    oneEarlierPoint = point;
+
                 }
                 // If we're not in a packet of evenly spaced data, resets to begin identifying a new packet
                 else
                 {
                     prevIndex = -1;
-                    oneEarlierPoint = new KeyValuePair<int, double>(-1, 0);
+                    oneEarlierPoint = point;
                     twoEarlierPoint = new KeyValuePair<int, double>(-1, 0);
                 }
+            }
             if (derivativePoints.Count == 0)
-                {
-                    throw new ArgumentException("No regions of properly spaced data were identified, originalDerivativeDistance is likely incorrect", nameof(originalDerivativeDistance));
-                }
+            {
+                throw new ArgumentException("No regions of properly spaced data were identified, originalDerivativeDistance is likely incorrect", nameof(originalDerivativeDistance));
             }
             return derivativePoints;
             
@@ -169,7 +172,7 @@ namespace FCWTNET
         /// </summary>
         /// <param name="downsampledDerivative">Input downsampled derivative</param>
         /// <param name="derivativeSmoothingDeviation">Deviation of the Gaussian kernel used to smooth in terms of the original size of the data</param>
-        /// <param name="derivativeDistance">Derivitative distance used when calculating the downsampled derivative</param>
+        /// <param name="derivativeDistance">Derivative distance used when calculating the downsampled derivative</param>
         /// <returns></returns>
         public static SortedDictionary<int, double> DownsampledDerivativeSmoothing(SortedDictionary<int, double> downsampledDerivative, double derivativeSmoothingDeviation, int derivativeDistance)
         {
@@ -188,6 +191,11 @@ namespace FCWTNET
                 }
                 else
                 {
+                    if (point.Key == downsampledDerivative.Keys.Last())
+                    {
+                        clusterIndexList.Add(point.Key);
+                        clusterValueList.Add(point.Value);
+                    }
                     if(clusterIndexList.Count > (6 * (derivativeSmoothingDeviation/ (1 + 2 * (double)derivativeDistance))) + 1)
                     {
                         double[] derivativeArray = clusterValueList.ToArray();
@@ -200,7 +208,6 @@ namespace FCWTNET
                         {
                             smoothingAppliedOnce = true;
                         }
-
                     }
                     else
                     {
@@ -211,6 +218,8 @@ namespace FCWTNET
                     }
                     clusterIndexList = new List<int>();
                     clusterValueList = new List<double>();
+                    clusterIndexList.Add(point.Key);
+                    clusterValueList.Add(point.Value);
                     prevIndex = -1;
                 }
             }
@@ -224,19 +233,9 @@ namespace FCWTNET
             }
             return smoothedDerivativePoints;
         }
-        public int[] FrequencySliceMaxIdentification(double[] inputSlice, int derivativeDistance, double derivativeSmoothingDeviation, int peakWidth, double intensityThreshold)
+        public int[] FrequencySliceMaxIdentification()
         {
             throw new NotImplementedException();
-            //double[] derivativeSlice = StandardSliceDerivative(inputSlice, derivativeDistance);
-            //double[] smoothedDerivative = GaussianSmoothing.GaussianSmoothing1D(derivativeSlice, derivativeSmoothingDeviation);
-            //for (int i = 0; i < inputSlice.Length - 1; i++)
-            //{
-            //    if (smoothedDerivative[i] > 0 && smoothedDerivative[i + 1] < 0 && inputSlice[i] > minIntensity)
-            //    {
-
-            //    }
-            //}
-            
         }
         public static SortedDictionary<int, double> IndexLinkedIntensityFiltering(double[] inputSlice, double intensityThreshold)
         {
