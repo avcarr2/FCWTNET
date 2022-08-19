@@ -15,8 +15,8 @@ namespace FCWTNET
 
         public CWTOutput(double[][] real, double[][] imag)
         {
-            RealArray = FCWTAPI.ToTwoDArray(real);
-            ImagArray = FCWTAPI.ToTwoDArray(imag);
+            RealArray = ToTwoDArray(real);
+            ImagArray = ToTwoDArray(imag);
             Columns = RealArray.GetLength(1);
             Rows = RealArray.GetLength(0);
         }
@@ -53,6 +53,36 @@ namespace FCWTNET
                 }
             }
             return output;
+        }
+        public static double[,] ToTwoDArray(double[][] jaggedTwoD)
+        {
+            int arrayCount = jaggedTwoD.Length;
+            int arrayLength = jaggedTwoD[0].Length;
+            double[,] twodOutput = new double[arrayCount, arrayLength];
+            for (int i = 0; i < arrayCount; i++)
+            {
+                if (i > 0)
+                {
+                    if (jaggedTwoD[i].Length != jaggedTwoD[i - 1].Length)
+                    {
+                        arrayLength = jaggedTwoD[i].Length + 1;
+                    }
+                }
+                try
+                {
+                    for (int j = 0; j < arrayLength; j++)
+                    {
+                        twodOutput[i, j] = jaggedTwoD[i][j];
+                    }
+                }
+                catch (IndexOutOfRangeException)
+                {
+                    string rowError = String.Format("Invalid array length in row {0}", i);
+                    throw new IndexOutOfRangeException(rowError);
+                }
+
+            }
+            return twodOutput;
         }
     }
 }
