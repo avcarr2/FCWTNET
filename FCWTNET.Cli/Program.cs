@@ -290,14 +290,14 @@ Analysis options:
                 if (scored)
                 {
                     IsotopologueTruth nearest = groundTruth!
-                        .OrderBy(t => Math.Abs(t.Mz - peak.Frequency))
+                        .OrderBy(t => Math.Abs(t.Mz - peak.Position))
                         .First();
-                    double error = peak.Frequency - nearest.Mz;
+                    double error = peak.Position - nearest.Mz;
                     double ppm = error / nearest.Mz * 1e6;
                     writer.WriteLine(string.Join(",", new[]
                     {
                         rank.ToString(CultureInfo.InvariantCulture),
-                        peak.Frequency.ToString("F5", CultureInfo.InvariantCulture),
+                        peak.Position.ToString("F5", CultureInfo.InvariantCulture),
                         peak.Magnitude.ToString("E4", CultureInfo.InvariantCulture),
                         nearest.Mz.ToString("F5", CultureInfo.InvariantCulture),
                         error.ToString("F5", CultureInfo.InvariantCulture),
@@ -309,7 +309,7 @@ Analysis options:
                     writer.WriteLine(string.Join(",", new[]
                     {
                         rank.ToString(CultureInfo.InvariantCulture),
-                        peak.Frequency.ToString("F5", CultureInfo.InvariantCulture),
+                        peak.Position.ToString("F5", CultureInfo.InvariantCulture),
                         peak.Magnitude.ToString("E4", CultureInfo.InvariantCulture)
                     }));
                 }
@@ -321,10 +321,10 @@ Analysis options:
             {
                 DetectedPeak strongest = peaks[0];
                 IsotopologueTruth nearest = groundTruth!
-                    .OrderBy(t => Math.Abs(t.Mz - strongest.Frequency))
+                    .OrderBy(t => Math.Abs(t.Mz - strongest.Position))
                     .First();
-                double ppm = (strongest.Frequency - nearest.Mz) / nearest.Mz * 1e6;
-                Console.WriteLine($"  strongest ridge m/z {strongest.Frequency:F4} vs true {nearest.Mz:F4} " +
+                double ppm = (strongest.Position - nearest.Mz) / nearest.Mz * 1e6;
+                Console.WriteLine($"  strongest ridge m/z {strongest.Position:F4} vs true {nearest.Mz:F4} " +
                                   $"({ppm:F0} ppm)");
             }
         }

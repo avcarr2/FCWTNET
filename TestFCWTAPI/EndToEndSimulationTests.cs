@@ -91,8 +91,8 @@ namespace TestFCWTAPI
 
             // The Morlet wavelet at 96 voices/octave resolves about 0.7% per voice; allow
             // a couple of percent for the envelope and interpolation.
-            Assert.AreEqual(expectedMz, strongest.Frequency, expectedMz * 0.02,
-                $"expected m/z {expectedMz:F3}, recovered {strongest.Frequency:F3}");
+            Assert.AreEqual(expectedMz, strongest.Position, expectedMz * 0.02,
+                $"expected m/z {expectedMz:F3}, recovered {strongest.Position:F3}");
         }
 
         [Test]
@@ -117,7 +117,7 @@ namespace TestFCWTAPI
 
             double[] recovered = peaks.OrderByDescending(p => p.Magnitude)
                                       .Take(2)
-                                      .Select(p => p.Frequency)
+                                      .Select(p => p.Position)
                                       .OrderBy(m => m)
                                       .ToArray();
 
@@ -217,7 +217,7 @@ namespace TestFCWTAPI
 
             Assert.IsNotEmpty(peaks);
             DetectedPeak strongest = peaks.OrderByDescending(p => p.Magnitude).First();
-            Assert.AreEqual(expectedMz, strongest.Frequency, expectedMz * 0.03);
+            Assert.AreEqual(expectedMz, strongest.Position, expectedMz * 0.03);
         }
 
         [Test]
@@ -257,7 +257,7 @@ namespace TestFCWTAPI
 
                 Assert.IsNotEmpty(peaks);
                 double expectedMz = result.GroundTruth[0].Mz;
-                Assert.AreEqual(expectedMz, peaks.OrderByDescending(p => p.Magnitude).First().Frequency,
+                Assert.AreEqual(expectedMz, peaks.OrderByDescending(p => p.Magnitude).First().Position,
                     expectedMz * 0.03);
             }
             finally
@@ -286,12 +286,12 @@ namespace TestFCWTAPI
             var symmetric = RidgeExtraction.FindPeaks(new[] { 0.0, 1.0, 2.0, 1.0, 0.0 }, axis);
             Assert.AreEqual(1, symmetric.Count);
             Assert.AreEqual(2.0, symmetric[0].InterpolatedRow, 1e-9);
-            Assert.AreEqual(4.0, symmetric[0].Frequency, 1e-9);
+            Assert.AreEqual(4.0, symmetric[0].Position, 1e-9);
 
             var skewed = RidgeExtraction.FindPeaks(new[] { 0.0, 1.5, 2.0, 1.0, 0.0 }, axis);
             Assert.Greater(skewed[0].InterpolatedRow, 1.5);
             Assert.Less(skewed[0].InterpolatedRow, 2.0);
-            Assert.Less(skewed[0].Frequency, 4.0);
+            Assert.Less(skewed[0].Position, 4.0);
         }
     }
 }

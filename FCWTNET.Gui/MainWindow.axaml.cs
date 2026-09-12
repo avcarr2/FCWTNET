@@ -449,7 +449,7 @@ namespace FCWTNET.Gui
             int rank = 1;
             foreach (DetectedPeak peak in result.Peaks.Take(15))
             {
-                double value = peak.Frequency;
+                double value = peak.Position;
                 if (!useMz)
                 {
                     // Peaks were found against the m/z axis; convert back for display.
@@ -460,8 +460,8 @@ namespace FCWTNET.Gui
                 if (useMz && result.GroundTruth is { Count: > 0 })
                 {
                     IsotopologueTruth nearest = result.GroundTruth
-                        .OrderBy(t => Math.Abs(t.Mz - peak.Frequency)).First();
-                    ppm = ((peak.Frequency - nearest.Mz) / nearest.Mz * 1e6).ToString("F0", CultureInfo.InvariantCulture);
+                        .OrderBy(t => Math.Abs(t.Mz - peak.Position)).First();
+                    ppm = ((peak.Position - nearest.Mz) / nearest.Mz * 1e6).ToString("F0", CultureInfo.InvariantCulture);
                 }
 
                 builder.AppendLine(string.Format(CultureInfo.InvariantCulture,

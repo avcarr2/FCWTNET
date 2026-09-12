@@ -362,7 +362,7 @@ namespace TestFCWTAPI
                 CwtWorkflow.Result result = new CwtWorkflow().RunSimulation(config, species, settings);
                 expectedMz = result.GroundTruth![0].Mz;
                 Assert.IsNotEmpty(result.Peaks, wavelet.Name);
-                recovered.Add(result.Peaks.OrderByDescending(p => p.Magnitude).First().Frequency);
+                recovered.Add(result.Peaks.OrderByDescending(p => p.Magnitude).First().Position);
             }
 
             for (int i = 0; i < wavelets.Length; i++)
@@ -483,7 +483,7 @@ namespace TestFCWTAPI
             Assert.IsNotEmpty(result.Peaks);
 
             double expectedMz = result.GroundTruth![0].Mz;
-            double recovered = result.Peaks.OrderByDescending(p => p.Magnitude).First().Frequency;
+            double recovered = result.Peaks.OrderByDescending(p => p.Magnitude).First().Position;
             Assert.AreEqual(expectedMz, recovered, expectedMz * 0.1);
         }
     }

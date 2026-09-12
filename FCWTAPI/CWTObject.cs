@@ -50,6 +50,22 @@ namespace FCWTNET
         public Transform.Wavelets.IWavelet EffectiveWavelet =>
             Wavelet ?? new Transform.Wavelets.MorletWavelet(C0);
 
+        /// <summary>
+        /// Explicit scale grid. Null falls back to the whole-octave grid described by
+        /// <see cref="Psoctave"/>, <see cref="Pendoctave"/> and <see cref="Pnbvoice"/>.
+        /// Setting it bounds the analysed frequency range, which both saves work and keeps
+        /// the wavelet short enough to avoid FFT wrap-around at the signal edges.
+        /// </summary>
+        public Transform.ScaleGrid? ScaleGrid { get; set; }
+
+        /// <summary>
+        /// The grid actually transformed. Both <see cref="PerformCWT"/> and
+        /// <see cref="CalculateFrequencyAxis"/> read from this, so the axis can never
+        /// describe a different set of rows than were computed.
+        /// </summary>
+        public Transform.ScaleGrid EffectiveScaleGrid =>
+            ScaleGrid ?? Transform.ScaleGrid.ForOctaves(Psoctave, Pendoctave, Pnbvoice, EffectiveWavelet);
+
         public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes,
             int? samplingRate = null, double? calibrationCoefficient = null, string? workingPath = null)
         {
@@ -73,12 +89,23 @@ namespace FCWTNET
         /// </summary>
         public void PerformCWT()
         {
-            // A wavelet set here wins over the backend's own default.
-            Transform.ICwtBackend backend = Wavelet != null
-                ? Transform.CwtBackends.ManagedWith(Wavelet)
+            // A wavelet set here wins over the backend's own default. An explicit scale
+            // grid additionally forces the managed backend, since fCWT cannot express one.
+            Transform.ICwtBackend backend = Wavelet != null || ScaleGrid != null
+                ? Transform.CwtBackends.ManagedWith(EffectiveWavelet)
                 : Backend;
-            backend.Transform(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes,
-                out double[][] flippedReal, out double[][] flippedImag);
+
+            double[][] flippedReal;
+            double[][] flippedImag;
+            if (ScaleGrid != null)
+            {
+                backend.Transform(InputData, ScaleGrid, Nthreads, out flippedReal, out flippedImag);
+            }
+            else
+            {
+                backend.Transform(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads,
+                    Use_Optimization_Schemes, out flippedReal, out flippedImag);
+            }
             double[][] real = new double[flippedReal.Length][];
             double[][] imag = new double[flippedImag.Length][];
             for (int i = 1; i <= flippedReal.Length; i++)
@@ -105,9 +132,9 @@ namespace FCWTNET
             // backend actually produced. Frequencies are normalised (cycles per sample),
             // ascending, which is what CWTFrequencies expects: it multiplies by the
             // sampling rate to reach Hz, and binary-searches the axis assuming it is sorted.
-            double[] freqArray = Transform.CwtScales.AscendingCentreFrequencies(
-                Psoctave, Pendoctave, Pnbvoice, EffectiveWavelet);
-            FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, SamplingRate, CalibrationCoefficient);
+            Transform.ScaleGrid grid = EffectiveScaleGrid;
+            FrequencyAxis = new CWTFrequencies(grid.AscendingCentreFrequencies, grid.VoicesPerOctave,
+                SamplingRate, CalibrationCoefficient);
         }
         /// <summary>
         /// Generates an array corresponding to the individual timepoints of the transient operated on by the CWT

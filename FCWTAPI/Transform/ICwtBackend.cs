@@ -28,5 +28,16 @@ namespace FCWTNET.Transform
         /// <param name="imag">Imaginary part, indexed [scale][sample].</param>
         void Transform(double[] input, int psoctave, int pendoctave, int pnbvoice, float c0,
             int nthreads, bool useOptimizationSchemes, out double[][] real, out double[][] imag);
+
+        /// <summary>
+        /// Transform over an explicit scale grid rather than a whole number of octaves.
+        /// This is what lets the analysed frequency range be bounded to the m/z actually of
+        /// interest instead of being rounded out to octave boundaries.
+        /// </summary>
+        /// <exception cref="NotSupportedException">
+        /// Thrown by backends that can only express octave-aligned grids.
+        /// </exception>
+        void Transform(double[] input, ScaleGrid grid, int nthreads,
+            out double[][] real, out double[][] imag);
     }
 }

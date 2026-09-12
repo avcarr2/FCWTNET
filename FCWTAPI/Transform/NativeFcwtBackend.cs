@@ -39,5 +39,18 @@ namespace FCWTNET.Transform
             real = nativeReal;
             imag = nativeImag;
         }
+
+        /// <summary>
+        /// Not supported: the native fCWT entry point only takes a start and end octave, so
+        /// it cannot honour a grid bounded to arbitrary frequencies. Callers fall back to
+        /// <see cref="ManagedCwt"/> rather than silently analysing a different range.
+        /// </summary>
+        public void Transform(double[] input, ScaleGrid grid, int nthreads,
+            out double[][] real, out double[][] imag)
+        {
+            throw new NotSupportedException(
+                "The native fCWT backend only supports whole-octave scale ranges. " +
+                "Use the managed backend for a frequency-bounded grid.");
+        }
     }
 }

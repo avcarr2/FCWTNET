@@ -13,8 +13,13 @@ namespace FCWTNET.Analysis
         /// <summary>Sub-row peak position from parabolic interpolation.</summary>
         public double InterpolatedRow { get; set; }
 
-        /// <summary>Interpolated wavelet centre frequency, in whatever units the axis carries.</summary>
-        public double Frequency { get; set; }
+        /// <summary>
+        /// Interpolated position on whichever axis was handed to
+        /// <see cref="RidgeExtraction.FindPeaks(double[], double[], double, int)"/>. That is
+        /// usually an m/z axis, so this is usually an m/z -- the name is deliberately unit
+        /// agnostic rather than misleadingly called a frequency.
+        /// </summary>
+        public double Position { get; set; }
 
         /// <summary>Time-averaged modulus at the peak.</summary>
         public double Magnitude { get; set; }
@@ -144,7 +149,7 @@ namespace FCWTNET.Analysis
                 {
                     RowIndex = i,
                     InterpolatedRow = i + offset,
-                    Frequency = InterpolateFrequency(frequencyAxis, i, offset),
+                    Position = InterpolateFrequency(frequencyAxis, i, offset),
                     Magnitude = magnitude[i]
                 });
             }

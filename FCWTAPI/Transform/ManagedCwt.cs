@@ -85,7 +85,29 @@ namespace FCWTNET.Transform
             }
 
             IWavelet wavelet = ResolveWavelet(c0);
-            double[] scales = CwtScales.Scales(psoctave, pendoctave, pnbvoice);
+            Transform(input, ScaleGrid.ForOctaves(psoctave, pendoctave, pnbvoice, wavelet),
+                nthreads, out real, out imag);
+        }
+
+        /// <inheritdoc />
+        public void Transform(double[] input, ScaleGrid grid, int nthreads,
+            out double[][] real, out double[][] imag)
+        {
+            if (input == null)
+            {
+                throw new ArgumentNullException(nameof(input));
+            }
+            if (input.Length == 0)
+            {
+                throw new ArgumentException("Input signal must not be empty", nameof(input));
+            }
+            if (grid == null)
+            {
+                throw new ArgumentNullException(nameof(grid));
+            }
+
+            IWavelet wavelet = grid.Wavelet;
+            double[] scales = grid.Scales;
             int n = input.Length;
 
             // Forward transform of the signal, computed once and reused for every scale.
