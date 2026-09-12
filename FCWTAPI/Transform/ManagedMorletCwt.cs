@@ -9,16 +9,30 @@ namespace FCWTNET.Transform
     /// Pure managed complex Morlet CWT, computed in the frequency domain.
     ///
     /// The signal is transformed once, then for each scale the spectrum is multiplied by
-    /// the analytic Morlet transfer function and inverse-transformed. This is the standard
-    /// Torrence &amp; Compo formulation:
+    /// the analytic Morlet transfer function and inverse-transformed:
     ///
-    ///     psi_hat(a, w) = pi^(-1/4) * sqrt(2 * pi * a) * exp(-(a*w - c0)^2 / 2)   for w &gt; 0
-    ///                   = 0                                                       for w &lt;= 0
+    ///     psi_hat(a, w) = 2 * exp(-(a*w - c0)^2 / 2)   for w &gt; 0
+    ///                   = 0                            for w &lt;= 0
     ///
-    /// The sqrt(a) factor normalises every scale to unit energy, so magnitudes are
-    /// comparable across rows. Because the wavelet is analytic (identically zero for
-    /// negative frequencies), the result is complex and its modulus is the analytic
-    /// envelope of the signal component at that scale.
+    /// Because the wavelet is analytic (identically zero for negative frequencies) the
+    /// result is complex, and its modulus is the envelope of the signal component at that
+    /// scale.
+    ///
+    /// <para>
+    /// Normalisation is by amplitude, not energy. The usual Torrence &amp; Compo form
+    /// carries an extra sqrt(2*pi*a), which normalises each scale to unit energy but
+    /// biases frequency estimation: for a pure tone at w0 the modulus then peaks where
+    /// a*w0 = (c0 + sqrt(c0^2 + 2)) / 2 rather than at a*w0 = c0. At c0 = 6 that is a
+    /// 1.4% error in scale, and since m/z goes as 1/f^2 it becomes a 2.8% error in mass
+    /// assignment -- far too large to be useful here.
+    /// </para>
+    /// <para>
+    /// With the factor of 2 used above, a tone of amplitude A produces a modulus of A at
+    /// its own scale, so the scalogram reads directly as an amplitude envelope and peak
+    /// heights track ion abundance. Note this differs from whatever scaling the native
+    /// fCWT applies, so absolute magnitudes are not comparable between the two backends
+    /// even though peak positions are.
+    /// </para>
     ///
     /// Unlike <see cref="NativeFcwtBackend"/> this runs on any platform, which is what
     /// makes the simulator, the CLI and CI usable off Windows.
@@ -69,7 +83,9 @@ namespace FCWTNET.Transform
             double[][] realRows = new double[scales.Length][];
             double[][] imagRows = new double[scales.Length][];
 
-            double normalisation = Math.Pow(Math.PI, -0.25);
+            // Chosen so a tone of amplitude A yields a modulus of A: the forward FFT puts
+            // A*n/2 in the tone's bin, and only the positive-frequency half is kept.
+            const double AmplitudeNormalisation = 2.0;
             ParallelOptions options = new ParallelOptions();
             if (nthreads > 0)
             {
@@ -79,13 +95,12 @@ namespace FCWTNET.Transform
             Parallel.For(0, scales.Length, options, j =>
             {
                 double scale = scales[j];
-                double scaleNorm = normalisation * Math.Sqrt(2.0 * Math.PI * scale);
 
                 Complex[] work = new Complex[n];
                 for (int k = 0; k < positiveBins; k++)
                 {
                     double shifted = scale * omega[k] - c0;
-                    double daughter = scaleNorm * Math.Exp(-0.5 * shifted * shifted);
+                    double daughter = AmplitudeNormalisation * Math.Exp(-0.5 * shifted * shifted);
                     work[k] = spectrum[k] * daughter;
                 }
                 // Bins above Nyquist stay zero: that is what makes the result analytic.

@@ -135,6 +135,44 @@ namespace TestFCWTAPI
             Assert.Less(maxDeviation / mean, 0.02, "envelope of a stationary tone should be flat");
         }
 
+        /// <summary>
+        /// Amplitude normalisation means the modulus at the ridge equals the amplitude of
+        /// the tone, and the ridge sits at the tone's own frequency with no bias. An
+        /// energy-normalised (sqrt(a)) wavelet would peak where a*w0 = (c0+sqrt(c0^2+2))/2,
+        /// which at c0 = 6 is 1.4% off in scale and 2.8% off once converted to m/z.
+        /// </summary>
+        [TestCase(1.0)]
+        [TestCase(3.5)]
+        public void ModulusAtTheRidgeEqualsTheToneAmplitude(double amplitude)
+        {
+            int n = 8192;
+            double frequency = 0.1;
+            double[] signal = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                signal[i] = amplitude * Math.Cos(2 * Math.PI * frequency * i);
+            }
+
+            var backend = new ManagedMorletCwt();
+            backend.Transform(signal, Psoctave, Pendoctave, Pnbvoice, C0, 0, false,
+                out double[][] real, out double[][] imag);
+
+            double[] perScale = MeanModulusPerScale(real, imag);
+            int peakRow = ArgMax(perScale);
+
+            // Measured mid-signal, away from edge effects.
+            int centre = n / 2;
+            double modulus = Math.Sqrt(
+                real[peakRow][centre] * real[peakRow][centre] +
+                imag[peakRow][centre] * imag[peakRow][centre]);
+            Assert.AreEqual(amplitude, modulus, amplitude * 0.02);
+
+            // And the ridge is where the tone actually is.
+            double[] scales = CwtScales.Scales(Psoctave, Pendoctave, Pnbvoice);
+            double recovered = CwtScales.NormalizedCentreFrequency(scales[peakRow], C0);
+            Assert.AreEqual(frequency, recovered, frequency * 0.02);
+        }
+
         [Test]
         public void TransformIsLinear()
         {
