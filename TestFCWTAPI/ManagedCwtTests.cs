@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace TestFCWTAPI
 {
-    public class ManagedMorletCwtTests
+    public class ManagedCwtTests
     {
         private const int Psoctave = 1;
         private const int Pendoctave = 6;
@@ -87,7 +87,7 @@ namespace TestFCWTAPI
                 signal[i] = Math.Cos(2 * Math.PI * normalizedFrequency * i);
             }
 
-            var backend = new ManagedMorletCwt();
+            var backend = new ManagedCwt();
             backend.Transform(signal, Psoctave, Pendoctave, Pnbvoice, C0, 0, false,
                 out double[][] real, out double[][] imag);
 
@@ -115,7 +115,7 @@ namespace TestFCWTAPI
                 signal[i] = Math.Cos(2 * Math.PI * frequency * i);
             }
 
-            var backend = new ManagedMorletCwt();
+            var backend = new ManagedCwt();
             backend.Transform(signal, Psoctave, Pendoctave, Pnbvoice, C0, 0, false,
                 out double[][] real, out double[][] imag);
 
@@ -153,7 +153,7 @@ namespace TestFCWTAPI
                 signal[i] = amplitude * Math.Cos(2 * Math.PI * frequency * i);
             }
 
-            var backend = new ManagedMorletCwt();
+            var backend = new ManagedCwt();
             backend.Transform(signal, Psoctave, Pendoctave, Pnbvoice, C0, 0, false,
                 out double[][] real, out double[][] imag);
 
@@ -187,7 +187,7 @@ namespace TestFCWTAPI
                 sum[i] = a[i] + b[i];
             }
 
-            var backend = new ManagedMorletCwt();
+            var backend = new ManagedCwt();
             backend.Transform(a, Psoctave, Pendoctave, Pnbvoice, C0, 0, false, out double[][] ra, out double[][] ia);
             backend.Transform(b, Psoctave, Pendoctave, Pnbvoice, C0, 0, false, out double[][] rb, out double[][] ib);
             backend.Transform(sum, Psoctave, Pendoctave, Pnbvoice, C0, 0, false, out double[][] rs, out double[][] iss);
@@ -215,7 +215,7 @@ namespace TestFCWTAPI
                           + Math.Cos(2 * Math.PI * highFrequency * i);
             }
 
-            var backend = new ManagedMorletCwt();
+            var backend = new ManagedCwt();
             backend.Transform(signal, Psoctave, Pendoctave, Pnbvoice, C0, 0, false,
                 out double[][] real, out double[][] imag);
 
@@ -246,7 +246,7 @@ namespace TestFCWTAPI
         [Test]
         public void RejectsInvalidArguments()
         {
-            var backend = new ManagedMorletCwt();
+            var backend = new ManagedCwt();
             Assert.Throws<ArgumentNullException>(() => backend.Transform(
                 null!, 1, 2, 4, C0, 0, false, out _, out _));
             Assert.Throws<ArgumentException>(() => backend.Transform(

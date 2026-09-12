@@ -98,10 +98,27 @@
           </StackPanel>
 
           <StackPanel Spacing="4">
+            <TextBlock Text="Wavelet" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="WaveletBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnWaveletChanged"/>
+          </StackPanel>
+
+          <!-- c0 only means anything to the Morlet; other wavelets carry their own shape
+               parameter, set through the specification box below. -->
+          <StackPanel x:Name="C0Panel" Spacing="4">
             <TextBlock Text="Morlet c0" Foreground="#A0A0B4" FontSize="12"/>
             <NumericUpDown x:Name="C0Box" Minimum="1" Maximum="500"
                            Increment="1" Value="6" FormatString="0.##"/>
           </StackPanel>
+
+          <StackPanel x:Name="WaveletParameterPanel" Spacing="4" IsVisible="False">
+            <TextBlock x:Name="WaveletParameterLabel" Foreground="#A0A0B4" FontSize="12"
+                       TextWrapping="Wrap"/>
+            <TextBox x:Name="WaveletParameterBox" Watermark="defaults"/>
+          </StackPanel>
+
+          <TextBlock x:Name="WaveletSummary" TextWrapping="Wrap"
+                     Foreground="#8A8AA0" FontSize="11"/>
 
           <StackPanel Spacing="4">
             <TextBlock Text="Max samples" Foreground="#A0A0B4" FontSize="12"/>

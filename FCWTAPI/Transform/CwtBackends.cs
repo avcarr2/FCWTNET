@@ -15,7 +15,10 @@ namespace FCWTNET.Transform
 
         public static ICwtBackend Native { get; } = new NativeFcwtBackend();
 
-        public static ICwtBackend Managed { get; } = new ManagedMorletCwt();
+        public static ICwtBackend Managed { get; } = new ManagedCwt();
+
+        /// <summary>A managed backend using the given analysing wavelet.</summary>
+        public static ICwtBackend ManagedWith(Wavelets.IWavelet wavelet) => new ManagedCwt(wavelet);
 
         private static ICwtBackend SelectDefault()
         {

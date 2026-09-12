@@ -120,7 +120,7 @@ regenerates the envelope live when you switch mode or move the centroid.
 ## Transform backends
 
 `fCWT.dll` is a Windows x64 binary and there is no Linux or macOS equivalent in the repo,
-so the library also ships `ManagedMorletCwt`: a pure C# complex Morlet CWT computed in
+so the library also ships `ManagedCwt`: a pure C# complex CWT computed in
 the frequency domain. `CWTObject.Backend` defaults to native on Windows where the DLL
 loads, and managed everywhere else.
 
@@ -131,16 +131,49 @@ for a tone at `w0` the modulus peaks where `a*w0 = (c0 + sqrt(c0^2 + 2))/2` rath
 at `c0`, and because `m/z` goes as `1/f^2` a 1.4% scale error becomes a 2.8% mass error.
 Absolute magnitudes therefore differ between the two backends; peak positions do not.
 
+## Choosing a wavelet
+
+The analysing wavelet is selectable. All of them are **analytic** — zero response at
+negative frequencies — so the transform is complex and its modulus is an envelope, which
+is what ridge extraction needs; a real-valued wavelet gives an oscillating transform with
+no ridge to follow.
+
+| Wavelet | Spec | Shape | Resolution at defaults |
+|---|---|---|---|
+| Morlet | `morlet[:c0]` | Gaussian in frequency | ~39% (`c0` = 6) |
+| Paul | `paul[:order]` | Sharp in time, broad in frequency | ~119% (order 4) |
+| Bump | `bump[:centre,width]` | Compact support in frequency | ~15% |
+| Log-Gabor | `log-gabor[:centre,bandwidth]` | Gaussian in log-frequency | ~33% |
+| DOG | `dog[:order]` | Analytic derivative of Gaussian | ~116% (order 2) |
+
+```bash
+dotnet run --project FCWTNET.Cli -- wavelets
+dotnet run --project FCWTNET.Cli -- analyze t.csv --out ./out --wavelet morlet:80
+dotnet run --project FCWTNET.Cli -- analyze t.csv --out ./out --wavelet bump:5,0.09
+```
+
+**Morlet is the right default.** It is Gaussian in both domains, so it sits exactly on the
+uncertainty bound: nothing else gives better frequency resolution for the same time
+resolution. The others are worth reaching for when their particular property matters —
+Paul for abrupt onsets, Bump when a huge neighbouring peak's tails would otherwise leak
+into a small one, Log-Gabor for constant fractional bandwidth across a wide range.
+
+Each wavelet peaks at its own point on the scale grid, so **the scale range that covers a
+given frequency differs per wavelet** — a Paul of order 6400 does the same job at scales
+three orders of magnitude from a Morlet's. The frequency and m/z axes are built from the
+wavelet in use (`CwtScales.AscendingCentreFrequencies(…, IWavelet)`), so they stay correct
+when you swap it; a test pins that four different wavelets recover the same m/z for the
+same ion.
+
 ## Resolution, and what to expect
 
-**`c0` is the knob that decides what can be told apart.** A Morlet wavelet's frequency
-response is a Gaussian of width 1 around `c0`, so its fractional resolution is
+**Wavelet bandwidth is the knob that decides what can be told apart**, and for the Morlet
+that knob is `c0`. Its frequency response is a Gaussian of width 1 around `c0`, so
 
 ```
 df/f = 2*sqrt(2*ln2) / c0
 ```
 
-(`CwtScales.RelativeFrequencyResolution`, with `C0ForRelativeResolution` as its inverse).
 Components closer together than that merge into one ridge no matter how many voices you
 use — voices only sample the scale axis, they do not sharpen the wavelet. Concretely:
 
@@ -150,9 +183,12 @@ use — voices only sample the scale axis, they do not sharpen the wavelet. Conc
 | 40 | ~5.9% | Widely spaced charge states |
 | 80 | ~2.9% | Adjacent charge states of a 17 kDa protein (~3% apart) |
 
-Raising `c0` buys frequency resolution by spending time resolution — the wavelet spans
-more cycles — which is exactly the trade a CWT exists to let you make. Each preset
-declares a `SuggestedC0`; the CLI and the app use it unless you override `--c0`.
+Every wavelet reports its own `RelativeFrequencyResolution`, derived from the response it
+actually applies rather than a hand-copied formula, so the number cannot drift out of step
+with the transform. Raising it buys frequency resolution by spending time resolution — the
+wavelet spans more cycles — which is exactly the trade a CWT exists to let you make. Each
+preset declares a `SuggestedC0`; the CLI and the app use it unless you override `--c0` or
+`--wavelet`.
 
 Two consequences worth knowing before reading a scalogram:
 
@@ -180,7 +216,7 @@ scaling; `PlottingUtils` exports OxyPlot models to PDF or PNG.
 ## Known gaps
 
 - The native and managed backends have not been compared numerically; that test exists
-  (`ManagedMorletCwtTests`) but only runs on Windows, where `fCWT.dll` loads.
+  (`ManagedCwtTests`) but only runs on Windows, where `fCWT.dll` loads.
 - Averagine is an approximation; isotope intensities are not formula-derived.
 - `CWTOutput` holds real, imaginary and modulus as separate dense `double[,]`, so a long
   transient across many voices needs several GB. Keep an eye on `MaxSamples`.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using FCWTNET.Simulation;
 using FCWTNET.Transform;
+using FCWTNET.Transform.Wavelets;
 using FCWTNET.Visualization;
 
 namespace FCWTNET.Analysis
@@ -20,6 +21,14 @@ namespace FCWTNET.Analysis
 
         /// <summary>Transform implementation; null selects the platform default.</summary>
         public ICwtBackend? Backend { get; set; }
+
+        /// <summary>
+        /// Analysing wavelet. Null means a complex Morlet built from <see cref="C0"/>.
+        /// </summary>
+        public IWavelet? Wavelet { get; set; }
+
+        /// <summary>The wavelet actually in use.</summary>
+        public IWavelet EffectiveWavelet => Wavelet ?? new MorletWavelet(C0);
 
         /// <summary>Ignore ridges below this fraction of the strongest one.</summary>
         public double PeakRelativeThreshold { get; set; } = 0.05;
@@ -43,7 +52,7 @@ namespace FCWTNET.Analysis
             }
             // Rows per octave is Voices; the wavelet's FWHM in octaves is
             // log2(1 + df/f), so half of that in rows is a conservative floor.
-            double resolutionOctaves = Math.Log2(1 + CwtScales.RelativeFrequencyResolution(C0));
+            double resolutionOctaves = Math.Log2(1 + EffectiveWavelet.RelativeFrequencyResolution);
             return Math.Max(1, (int)Math.Round(0.5 * resolutionOctaves * Voices));
         }
     }
@@ -112,7 +121,8 @@ namespace FCWTNET.Analysis
             var cwt = new CWTObject(window, settings.StartOctave, settings.EndOctave, settings.Voices,
                 settings.C0, 0, false, samplingRate, calibrationCoefficient)
             {
-                Backend = settings.Backend ?? CwtBackends.Default
+                Backend = settings.Backend ?? CwtBackends.Default,
+                Wavelet = settings.Wavelet
             };
             cwt.PerformCWT();
             cwt.CalculateFrequencyAxis();
@@ -145,6 +155,17 @@ namespace FCWTNET.Analysis
         public static (int StartOctave, int EndOctave) BracketOctaves(
             IReadOnlyList<IsotopologueTruth> truth, int samplingRate, double c0, double windowSeconds)
         {
+            return BracketOctaves(truth, samplingRate, new MorletWavelet(c0), windowSeconds);
+        }
+
+        /// <summary>
+        /// As above for an arbitrary wavelet: the scale that centres on a given frequency
+        /// depends on where the wavelet peaks, so the bracket does too.
+        /// </summary>
+        public static (int StartOctave, int EndOctave) BracketOctaves(
+            IReadOnlyList<IsotopologueTruth> truth, int samplingRate, IWavelet wavelet,
+            double windowSeconds)
+        {
             if (truth == null || truth.Count == 0)
             {
                 throw new ArgumentException("Need at least one component to bracket", nameof(truth));
@@ -152,8 +173,8 @@ namespace FCWTNET.Analysis
 
             double lowest = truth.Min(t => Math.Min(t.FrequencyAt(0), t.FrequencyAt(windowSeconds))) / samplingRate;
             double highest = truth.Max(t => Math.Max(t.FrequencyAt(0), t.FrequencyAt(windowSeconds))) / samplingRate;
-            double largestScale = CwtScales.ScaleForNormalizedFrequency(lowest, c0);
-            double smallestScale = CwtScales.ScaleForNormalizedFrequency(highest, c0);
+            double largestScale = CwtScales.ScaleForNormalizedFrequency(lowest, wavelet);
+            double smallestScale = CwtScales.ScaleForNormalizedFrequency(highest, wavelet);
 
             int start = (int)Math.Floor(Math.Log2(smallestScale) - 0.5);
             int end = (int)Math.Ceiling(Math.Log2(largestScale) + 0.5);

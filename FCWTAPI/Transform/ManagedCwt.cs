@@ -2,17 +2,17 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using MathNet.Numerics.IntegralTransforms;
+using FCWTNET.Transform.Wavelets;
 
 namespace FCWTNET.Transform
 {
     /// <summary>
-    /// Pure managed complex Morlet CWT, computed in the frequency domain.
+    /// Pure managed complex CWT, computed in the frequency domain, for any analytic
+    /// wavelet.
     ///
     /// The signal is transformed once, then for each scale the spectrum is multiplied by
-    /// the analytic Morlet transfer function and inverse-transformed:
-    ///
-    ///     psi_hat(a, w) = 2 * exp(-(a*w - c0)^2 / 2)   for w &gt; 0
-    ///                   = 0                            for w &lt;= 0
+    /// the wavelet's frequency response and inverse-transformed. The wavelet supplies that
+    /// response (see <see cref="IWavelet"/>); the default is a complex Morlet.
     ///
     /// Because the wavelet is analytic (identically zero for negative frequencies) the
     /// result is complex, and its modulus is the envelope of the signal component at that
@@ -21,10 +21,12 @@ namespace FCWTNET.Transform
     /// <para>
     /// Normalisation is by amplitude, not energy. The usual Torrence &amp; Compo form
     /// carries an extra sqrt(2*pi*a), which normalises each scale to unit energy but
-    /// biases frequency estimation: for a pure tone at w0 the modulus then peaks where
-    /// a*w0 = (c0 + sqrt(c0^2 + 2)) / 2 rather than at a*w0 = c0. At c0 = 6 that is a
-    /// 1.4% error in scale, and since m/z goes as 1/f^2 it becomes a 2.8% error in mass
-    /// assignment -- far too large to be useful here.
+    /// biases frequency estimation: for a Morlet and a pure tone at w0 the modulus then
+    /// peaks where a*w0 = (c0 + sqrt(c0^2 + 2)) / 2 rather than at a*w0 = c0. At c0 = 6
+    /// that is a 1.4% error in scale, and since m/z goes as 1/f^2 it becomes a 2.8% error
+    /// in mass assignment -- far too large to be useful here. Because every wavelet's
+    /// response is normalised to a peak of 1, the same amplitude scaling works for all of
+    /// them and the ridge stays at the component's own frequency.
     /// </para>
     /// <para>
     /// With the factor of 2 used above, a tone of amplitude A produces a modulus of A at
@@ -37,11 +39,34 @@ namespace FCWTNET.Transform
     /// Unlike <see cref="NativeFcwtBackend"/> this runs on any platform, which is what
     /// makes the simulator, the CLI and CI usable off Windows.
     /// </summary>
-    public class ManagedMorletCwt : ICwtBackend
+    public class ManagedCwt : ICwtBackend
     {
-        public string Name => "managed-morlet";
+        /// <summary>Uses a complex Morlet; c0 comes from the per-transform argument.</summary>
+        public ManagedCwt()
+        {
+        }
+
+        /// <summary>
+        /// Uses the given wavelet for every transform, ignoring the c0 argument passed to
+        /// <see cref="Transform"/>. c0 is a Morlet-specific parameter and other wavelets
+        /// carry their own.
+        /// </summary>
+        public ManagedCwt(IWavelet wavelet)
+        {
+            Wavelet = wavelet ?? throw new ArgumentNullException(nameof(wavelet));
+        }
+
+        /// <summary>
+        /// The wavelet in use, or null to build a Morlet from each call's c0.
+        /// </summary>
+        public IWavelet? Wavelet { get; }
+
+        public string Name => Wavelet == null ? "managed-morlet" : $"managed-{Wavelet.Name}";
 
         public bool IsAvailable => true;
+
+        /// <summary>The wavelet this backend will apply for the given c0.</summary>
+        public IWavelet ResolveWavelet(double c0) => Wavelet ?? new MorletWavelet(c0);
 
         public void Transform(double[] input, int psoctave, int pendoctave, int pnbvoice, float c0,
             int nthreads, bool useOptimizationSchemes, out double[][] real, out double[][] imag)
@@ -54,11 +79,12 @@ namespace FCWTNET.Transform
             {
                 throw new ArgumentException("Input signal must not be empty", nameof(input));
             }
-            if (c0 <= 0)
+            if (Wavelet == null && c0 <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(c0), "c0 must be positive");
             }
 
+            IWavelet wavelet = ResolveWavelet(c0);
             double[] scales = CwtScales.Scales(psoctave, pendoctave, pnbvoice);
             int n = input.Length;
 
@@ -99,8 +125,7 @@ namespace FCWTNET.Transform
                 Complex[] work = new Complex[n];
                 for (int k = 0; k < positiveBins; k++)
                 {
-                    double shifted = scale * omega[k] - c0;
-                    double daughter = AmplitudeNormalisation * Math.Exp(-0.5 * shifted * shifted);
+                    double daughter = AmplitudeNormalisation * wavelet.Response(scale * omega[k]);
                     work[k] = spectrum[k] * daughter;
                 }
                 // Bins above Nyquist stay zero: that is what makes the result analytic.

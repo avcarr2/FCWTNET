@@ -9,7 +9,7 @@ namespace FCWTNET.Transform
     ///
     /// Only usable on Windows x64: the repository ships fCWT.dll and fftw3f.dll as PE
     /// binaries and the P/Invoke targets a mangled MSVC symbol. <see cref="IsAvailable"/>
-    /// reports false elsewhere so callers can fall back to <see cref="ManagedMorletCwt"/>
+    /// reports false elsewhere so callers can fall back to <see cref="ManagedCwt"/>
     /// rather than hitting a DllNotFoundException.
     /// </summary>
     public class NativeFcwtBackend : ICwtBackend

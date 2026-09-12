@@ -243,6 +243,59 @@ namespace TestFCWTNET.Gui
         }
 
         [AvaloniaTest]
+        public void WaveletPickerSwapsParameterControlsAndReportsResolution()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            var waveletBox = Find<ComboBox>(window, "WaveletBox");
+            var summary = Find<TextBlock>(window, "WaveletSummary");
+            var c0Panel = window.GetVisualDescendants().OfType<StackPanel>()
+                .First(p => p.Name == "C0Panel");
+            var parameterPanel = window.GetVisualDescendants().OfType<StackPanel>()
+                .First(p => p.Name == "WaveletParameterPanel");
+
+            // Morlet is the default and uses the dedicated c0 control.
+            Assert.AreEqual("morlet", waveletBox.SelectedItem);
+            Assert.IsTrue(c0Panel.IsVisible);
+            Assert.IsFalse(parameterPanel.IsVisible);
+            StringAssert.Contains("resolves components", summary.Text!);
+
+            // Every other wavelet swaps to the free-form parameter box.
+            waveletBox.SelectedItem = "paul";
+            Assert.IsFalse(c0Panel.IsVisible);
+            Assert.IsTrue(parameterPanel.IsVisible);
+            StringAssert.Contains("Order", Find<TextBlock>(window, "WaveletParameterLabel").Text!);
+
+            waveletBox.SelectedItem = "bump";
+            StringAssert.Contains("Centre", Find<TextBlock>(window, "WaveletParameterLabel").Text!);
+
+            // A bad parameter string is reported rather than thrown.
+            Find<TextBox>(window, "WaveletParameterBox").Text = "not-a-number";
+            Assert.DoesNotThrow(() => waveletBox.SelectedItem = "log-gabor");
+        }
+
+        [AvaloniaTest]
+        public void RunHonoursTheSelectedWavelet()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            Find<ComboBox>(window, "WaveletBox").SelectedItem = "bump";
+            Find<NumericUpDown>(window, "MaxSamplesBox").Value = 4096;
+            Find<NumericUpDown>(window, "VoicesBox").Value = 16;
+            Find<NumericUpDown>(window, "DurationBox").Value = 2;
+
+            var scalogram = Find<Image>(window, "ScalogramImage");
+            RaiseClick(window, "RunButton");
+            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(60));
+
+            var status = Find<TextBlock>(window, "StatusText");
+            TestContext.WriteLine(status.Text);
+            StringAssert.Contains("bump", status.Text!);
+        }
+
+        [AvaloniaTest]
         public void ChangingColormapDoesNotThrowBeforeARun()
         {
             var window = new MainWindow();

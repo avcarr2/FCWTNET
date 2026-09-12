@@ -13,6 +13,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using FCWTNET.Analysis;
 using FCWTNET.Simulation;
+using FCWTNET.Transform.Wavelets;
 using FCWTNET.Visualization;
 
 namespace FCWTNET.Gui
@@ -67,6 +68,69 @@ namespace FCWTNET.Gui
 
             IonizationBox.ItemsSource = Enum.GetNames<IonizationMode>();
             IonizationBox.SelectedIndex = 0;
+
+            WaveletBox.ItemsSource = WaveletCatalog.Names.ToList();
+            WaveletBox.SelectedItem = WaveletCatalog.Default.Name;
+            UpdateWaveletControls();
+        }
+
+        private void OnWaveletChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (!_initialised)
+            {
+                return;
+            }
+            // Parameters are per-wavelet, so a previous wavelet's values must not carry over.
+            WaveletParameterBox.Text = string.Empty;
+            UpdateWaveletControls();
+        }
+
+        /// <summary>
+        /// Shows the parameter entry that applies to the selected wavelet, and reports what
+        /// it can resolve -- which is the number that decides whether close components
+        /// separate at all.
+        /// </summary>
+        private void UpdateWaveletControls()
+        {
+            string name = (string?)WaveletBox.SelectedItem ?? "morlet";
+            bool isMorlet = name == "morlet";
+
+            // The Morlet's shape parameter already has its own control.
+            C0Panel.IsVisible = isMorlet;
+            WaveletParameterPanel.IsVisible = !isMorlet;
+            WaveletParameterLabel.Text = name switch
+            {
+                "paul" => "Order (integer, default 4)",
+                "bump" => "Centre, width (default 5, 0.6)",
+                "log-gabor" => "Centre, bandwidth ratio (default 6, 1.15)",
+                "dog" => "Order (integer, default 2)",
+                _ => "Parameters"
+            };
+
+            try
+            {
+                IWavelet wavelet = BuildWavelet();
+                WaveletSummary.Text =
+                    $"{wavelet.Description}\n" +
+                    $"resolves components >{wavelet.RelativeFrequencyResolution * 100:F1}% apart";
+            }
+            catch (Exception exception)
+            {
+                WaveletSummary.Text = exception.Message;
+            }
+        }
+
+        /// <summary>The wavelet described by the current controls.</summary>
+        private IWavelet BuildWavelet()
+        {
+            string name = (string?)WaveletBox.SelectedItem ?? "morlet";
+            if (name == "morlet")
+            {
+                return new MorletWavelet((double)(C0Box.Value ?? 6));
+            }
+            string parameters = WaveletParameterBox.Text?.Trim() ?? string.Empty;
+            return WaveletCatalog.Parse(
+                parameters.Length > 0 ? $"{name}:{parameters}" : name);
         }
 
         private void OnPresetChanged(object? sender, SelectionChangedEventArgs e)
@@ -265,11 +329,13 @@ namespace FCWTNET.Gui
 
         private CwtSettings BuildSettings(OrbitrapSimulatorConfig config, List<IonSpecies> species)
         {
+            IWavelet wavelet = BuildWavelet();
             var settings = new CwtSettings
             {
                 Voices = (int)(VoicesBox.Value ?? 48),
                 C0 = (float)(double)(C0Box.Value ?? 6),
-                MaxSamples = (int)(MaxSamplesBox.Value ?? 65536)
+                MaxSamples = (int)(MaxSamplesBox.Value ?? 65536),
+                Wavelet = wavelet
             };
 
             // Bracket the octaves around where the ions actually are. Running a throwaway
@@ -292,7 +358,7 @@ namespace FCWTNET.Gui
             int sampleCount = (int)Math.Round(config.DurationSeconds * config.SamplingRate);
             double windowSeconds = Math.Min(sampleCount, settings.MaxSamples) / (double)config.SamplingRate;
             (settings.StartOctave, settings.EndOctave) =
-                CwtWorkflow.BracketOctaves(truth, config.SamplingRate, settings.C0, windowSeconds);
+                CwtWorkflow.BracketOctaves(truth, config.SamplingRate, wavelet, windowSeconds);
             return settings;
         }
 
@@ -418,8 +484,9 @@ namespace FCWTNET.Gui
                                $"{settings.Voices} voices, {result.Modulus.GetLength(0)} rows");
             // The wavelet's own bandwidth decides what can be told apart at all, so it is
             // worth seeing next to the result.
-            double resolution = Transform.CwtScales.RelativeFrequencyResolution(settings.C0);
-            builder.AppendLine($"c0 {settings.C0:F0}: resolves components >{resolution * 100:F1}% apart");
+            IWavelet wavelet = settings.EffectiveWavelet;
+            builder.AppendLine($"{wavelet.Name}: resolves components " +
+                               $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
             builder.AppendLine($"backend {(settings.Backend ?? Transform.CwtBackends.Default).Name}");
             builder.Append($"{result.Peaks.Count} ridge(s) detected");
             return builder.ToString();

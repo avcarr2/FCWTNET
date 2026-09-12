@@ -1,4 +1,5 @@
 using System;
+using FCWTNET.Transform.Wavelets;
 
 namespace FCWTNET.Transform
 {
@@ -63,12 +64,27 @@ namespace FCWTNET.Transform
         /// </summary>
         public static double[] AscendingCentreFrequencies(int psoctave, int pendoctave, int nvoices, double c0)
         {
+            return AscendingCentreFrequencies(psoctave, pendoctave, nvoices, new MorletWavelet(c0));
+        }
+
+        /// <summary>
+        /// As above, for an arbitrary wavelet. Each wavelet peaks at its own point in
+        /// <c>a*w</c>, so the axis has to be built from the wavelet actually in use or the
+        /// frequency and m/z labels silently describe the wrong rows.
+        /// </summary>
+        public static double[] AscendingCentreFrequencies(int psoctave, int pendoctave, int nvoices,
+            IWavelet wavelet)
+        {
+            if (wavelet == null)
+            {
+                throw new ArgumentNullException(nameof(wavelet));
+            }
             double[] scales = Scales(psoctave, pendoctave, nvoices);
             double[] frequencies = new double[scales.Length];
             for (int j = 0; j < scales.Length; j++)
             {
                 // Reversed: largest scale (lowest frequency) lands at index 0.
-                frequencies[j] = NormalizedCentreFrequency(scales[scales.Length - 1 - j], c0);
+                frequencies[j] = NormalizedCentreFrequency(scales[scales.Length - 1 - j], wavelet);
             }
             return frequencies;
         }
@@ -77,6 +93,16 @@ namespace FCWTNET.Transform
         public static double NormalizedCentreFrequency(double scale, double c0)
         {
             return c0 / (2 * Math.PI * scale);
+        }
+
+        /// <summary>Normalised centre frequency (cycles per sample) of any wavelet at the given scale.</summary>
+        public static double NormalizedCentreFrequency(double scale, IWavelet wavelet)
+        {
+            if (wavelet == null)
+            {
+                throw new ArgumentNullException(nameof(wavelet));
+            }
+            return wavelet.CentreAngularFrequency / (2 * Math.PI * scale);
         }
 
         /// <summary>
@@ -127,6 +153,20 @@ namespace FCWTNET.Transform
                 throw new ArgumentOutOfRangeException(nameof(normalizedFrequency), "normalised frequency must be positive");
             }
             return c0 / (2 * Math.PI * normalizedFrequency);
+        }
+
+        /// <summary>Scale at which any wavelet is centred on the given normalised frequency.</summary>
+        public static double ScaleForNormalizedFrequency(double normalizedFrequency, IWavelet wavelet)
+        {
+            if (wavelet == null)
+            {
+                throw new ArgumentNullException(nameof(wavelet));
+            }
+            if (normalizedFrequency <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(normalizedFrequency), "normalised frequency must be positive");
+            }
+            return wavelet.CentreAngularFrequency / (2 * Math.PI * normalizedFrequency);
         }
     }
 }

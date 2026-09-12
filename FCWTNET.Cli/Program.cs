@@ -7,6 +7,7 @@ using FCWTNET;
 using FCWTNET.Analysis;
 using FCWTNET.Simulation;
 using FCWTNET.Transform;
+using FCWTNET.Transform.Wavelets;
 using FCWTNET.Visualization;
 
 namespace FCWTNET.Cli
@@ -35,6 +36,8 @@ namespace FCWTNET.Cli
                         return Demo(options);
                     case "presets":
                         return ListPresets();
+                    case "wavelets":
+                        return ListWavelets();
                     case "help":
                     case "--help":
                     case "-h":
@@ -68,11 +71,14 @@ Commands:
   analyze    Run a CWT over a transient and write scalogram PNGs and a peak table.
   demo       Simulate and analyse every preset.
   presets    List the available simulation presets.
+  wavelets   List the available analysing wavelets.
 
 Analysis options:
   --octaves <lo:hi>   Scale range, e.g. 2:6            (default 2:6)
   --voices N          Scales per octave                (default 48)
   --c0 F              Morlet central frequency         (default 6)
+  --wavelet SPEC      morlet[:c0] | paul[:order] | bump[:centre,width]
+                      | log-gabor[:centre,bandwidth] | dog[:order]
   --colormap NAME     viridis | magma | blues | greys  (default viridis)
   --scale NAME        linear | log | sqrt              (default linear)
   --max-samples N     Truncate long transients         (default 65536)
@@ -86,6 +92,18 @@ Analysis options:
             foreach (SimulationPreset preset in Presets.All.Values.OrderBy(p => p.Name))
             {
                 Console.WriteLine($"  {preset.Name,-20} {preset.Description}");
+            }
+            return 0;
+        }
+
+        private static int ListWavelets()
+        {
+            Console.WriteLine("Available wavelets (name[:parameters]):");
+            foreach (IWavelet wavelet in WaveletCatalog.Defaults)
+            {
+                Console.WriteLine($"  {wavelet.Name,-12} {wavelet.Description}");
+                Console.WriteLine($"  {"",-12} at defaults: resolves components " +
+                                  $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
             }
             return 0;
         }
@@ -187,6 +205,10 @@ Analysis options:
             // whose neighbours differ by ~3% cannot be resolved by the c0 = 6 that suits
             // a single isolated peak.
             float c0 = (float)options.GetDouble("c0", defaultC0);
+            // An explicit --wavelet wins; otherwise a Morlet at the effective c0.
+            IWavelet wavelet = options.Has("wavelet")
+                ? WaveletCatalog.Parse(options.GetString("wavelet", "morlet"))
+                : new MorletWavelet(c0);
             Colormap colormap = Colormaps.Get(options.GetString("colormap", "viridis"));
             IntensityScale scale = ParseScale(options.GetString("scale", "linear"));
 
@@ -194,7 +216,8 @@ Analysis options:
             double windowSeconds = (double)samples.Length / samplingRate;
             if (groundTruth != null && groundTruth.Count > 0 && !options.Has("octaves"))
             {
-                (startOctave, endOctave) = BracketOctaves(groundTruth, samplingRate, c0, windowSeconds);
+                (startOctave, endOctave) = CwtWorkflow.BracketOctaves(
+                    groundTruth, samplingRate, wavelet, windowSeconds);
             }
 
             ICwtBackend backend = options.GetString("backend", "auto").ToLowerInvariant() switch
@@ -204,14 +227,16 @@ Analysis options:
                 _ => CwtBackends.Default
             };
 
-            Console.WriteLine($"  CWT: octaves {startOctave}:{endOctave}, {voices} voices, c0 {c0}, " +
-                              $"backend {backend.Name}, {samples.Length} samples");
-            Console.WriteLine($"  resolves components >{CwtScales.RelativeFrequencyResolution(c0) * 100:F1}% apart");
+            Console.WriteLine($"  CWT: octaves {startOctave}:{endOctave}, {voices} voices, " +
+                              $"wavelet {wavelet.Name}, {samples.Length} samples");
+            Console.WriteLine($"  resolves components " +
+                              $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
 
             var cwt = new CWTObject(samples, startOctave, endOctave, voices, c0, 0, false,
                 samplingRate, calibrationCoefficient, outputDirectory)
             {
-                Backend = backend
+                Backend = backend,
+                Wavelet = wavelet
             };
             cwt.PerformCWT();
             cwt.CalculateFrequencyAxis();
@@ -228,33 +253,12 @@ Analysis options:
             IReadOnlyList<DetectedPeak> peaks = RidgeExtraction.FindPeaks(
                 modulus, cwt.FrequencyAxis.MZValues!,
                 relativeThreshold: 0.1,
-                minimumRowSeparation: Math.Max(1, voices / 8));
+                minimumRowSeparation: new CwtSettings { Voices = voices, Wavelet = wavelet }
+                    .EffectivePeakSeparation());
 
             int peakCount = options.GetInt("peaks", 10);
             WritePeakTable(peaks.Take(peakCount).ToList(), groundTruth,
                 Path.Combine(outputDirectory, $"{name}.peaks.csv"));
-        }
-
-        /// <summary>
-        /// Chooses an octave range whose scales bracket the known ion frequencies, with a
-        /// little headroom either side.
-        /// </summary>
-        private static (int, int) BracketOctaves(IReadOnlyList<IsotopologueTruth> truth, int samplingRate,
-            double c0, double windowSeconds)
-        {
-            // A drifting component sweeps between its start and end frequency, so both
-            // ends have to be inside the scale range or the ridge runs off the image.
-            double lowest = truth.Min(t => Math.Min(t.FrequencyAt(0), t.FrequencyAt(windowSeconds))) / samplingRate;
-            double highest = truth.Max(t => Math.Max(t.FrequencyAt(0), t.FrequencyAt(windowSeconds))) / samplingRate;
-            // scale = c0 / (2*pi*f); larger scale means lower frequency.
-            double largestScale = CwtScales.ScaleForNormalizedFrequency(lowest, c0);
-            double smallestScale = CwtScales.ScaleForNormalizedFrequency(highest, c0);
-            // Half an octave of margin either side. Without it the ions can land hard
-            // against the edge of the scale range and the ridge is clipped, because the
-            // wavelet's response spans several voices beyond the ion's own scale.
-            int start = (int)Math.Floor(Math.Log2(smallestScale) - 0.5);
-            int end = (int)Math.Ceiling(Math.Log2(largestScale) + 0.5);
-            return (Math.Max(0, start), Math.Max(start + 1, end));
         }
 
         private static void WriteScalogramPng(double[,] modulus, string path, Colormap colormap, IntensityScale scale)

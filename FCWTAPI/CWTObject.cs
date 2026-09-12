@@ -39,6 +39,17 @@ namespace FCWTNET
         /// </summary>
         public Transform.ICwtBackend Backend { get; set; } = Transform.CwtBackends.Default;
 
+        /// <summary>
+        /// Analysing wavelet. Null means a complex Morlet built from <see cref="C0"/>,
+        /// which is the historical behaviour. Setting this also changes the frequency
+        /// axis, because every wavelet peaks at its own point on the scale grid.
+        /// </summary>
+        public Transform.Wavelets.IWavelet? Wavelet { get; set; }
+
+        /// <summary>The wavelet actually in use.</summary>
+        public Transform.Wavelets.IWavelet EffectiveWavelet =>
+            Wavelet ?? new Transform.Wavelets.MorletWavelet(C0);
+
         public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes,
             int? samplingRate = null, double? calibrationCoefficient = null, string? workingPath = null)
         {
@@ -62,7 +73,11 @@ namespace FCWTNET
         /// </summary>
         public void PerformCWT()
         {
-            Backend.Transform(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes,
+            // A wavelet set here wins over the backend's own default.
+            Transform.ICwtBackend backend = Wavelet != null
+                ? Transform.CwtBackends.ManagedWith(Wavelet)
+                : Backend;
+            backend.Transform(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes,
                 out double[][] flippedReal, out double[][] flippedImag);
             double[][] real = new double[flippedReal.Length][];
             double[][] imag = new double[flippedImag.Length][];
@@ -90,7 +105,8 @@ namespace FCWTNET
             // backend actually produced. Frequencies are normalised (cycles per sample),
             // ascending, which is what CWTFrequencies expects: it multiplies by the
             // sampling rate to reach Hz, and binary-searches the axis assuming it is sorted.
-            double[] freqArray = Transform.CwtScales.AscendingCentreFrequencies(Psoctave, Pendoctave, Pnbvoice, C0);
+            double[] freqArray = Transform.CwtScales.AscendingCentreFrequencies(
+                Psoctave, Pendoctave, Pnbvoice, EffectiveWavelet);
             FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, SamplingRate, CalibrationCoefficient);
         }
         /// <summary>

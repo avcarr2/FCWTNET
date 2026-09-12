@@ -17,7 +17,7 @@ namespace TestFCWTAPI
         }
         // Exercises the native fCWT P/Invoke directly. fCWT.dll is a Windows x64 PE
         // binary with no Linux/macOS equivalent in the repo, so this can only run there.
-        // The cross-platform path is covered by ManagedMorletCwtTests.
+        // The cross-platform path is covered by ManagedCwtTests.
         [Test]
         [Platform("Win", Reason = "Requires the native Windows-only fCWT.dll")]
         public static void TestFCWT()
