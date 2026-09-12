@@ -9,6 +9,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFCWTAPI", "TestFCWTAPI\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FCWTNET.Cli", "FCWTNET.Cli\FCWTNET.Cli.csproj", "{3A6B1901-76FB-4620-BD3E-09E5B61CC518}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FCWTNET.Gui", "FCWTNET.Gui\FCWTNET.Gui.csproj", "{36FDCA74-BD16-436D-BCBE-B7B4EC6BA3B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestFCWTNET.Gui", "TestFCWTNET.Gui\TestFCWTNET.Gui.csproj", "{5F0099DE-BF00-461B-BFFB-582DE84F237F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{3A6B1901-76FB-4620-BD3E-09E5B61CC518}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3A6B1901-76FB-4620-BD3E-09E5B61CC518}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3A6B1901-76FB-4620-BD3E-09E5B61CC518}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36FDCA74-BD16-436D-BCBE-B7B4EC6BA3B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36FDCA74-BD16-436D-BCBE-B7B4EC6BA3B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36FDCA74-BD16-436D-BCBE-B7B4EC6BA3B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36FDCA74-BD16-436D-BCBE-B7B4EC6BA3B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F0099DE-BF00-461B-BFFB-582DE84F237F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F0099DE-BF00-461B-BFFB-582DE84F237F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F0099DE-BF00-461B-BFFB-582DE84F237F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F0099DE-BF00-461B-BFFB-582DE84F237F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

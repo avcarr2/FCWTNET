@@ -1,0 +1,348 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
+using FCWTNET.Analysis;
+using FCWTNET.Simulation;
+using FCWTNET.Visualization;
+
+namespace FCWTNET.Gui
+{
+    public partial class MainWindow : Window
+    {
+        private const int ScalogramWidth = 1024;
+        private const int ScalogramHeight = 512;
+        private const int TransientWidth = 512;
+        private const int TransientHeight = 160;
+
+        private readonly CwtWorkflow _workflow = new();
+        private CwtWorkflow.Result? _lastResult;
+        private bool _initialised;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            PopulateChoices();
+            _initialised = true;
+            ApplyPreset(Presets.Get("single-peak"));
+
+            // The overlay is positioned in canvas pixels, so it has to be redrawn
+            // whenever the canvas is laid out or resized -- otherwise the markers keep
+            // the geometry of whatever size the window happened to be at run time.
+            OverlayCanvas.SizeChanged += (_, _) =>
+            {
+                if (_lastResult != null)
+                {
+                    DrawTruthOverlay(_lastResult);
+                }
+            };
+        }
+
+        // No hand-written InitializeComponent here: the XAML compiler generates one that
+        // also assigns the x:Name fields. Declaring our own shadows it, leaving every
+        // named control null.
+
+        private void PopulateChoices()
+        {
+            PresetBox.ItemsSource = Presets.All.Values.Select(p => p.Name).OrderBy(n => n).ToList();
+            PresetBox.SelectedItem = "single-peak";
+
+            ColormapBox.ItemsSource = Colormaps.All.Keys.ToList();
+            ColormapBox.SelectedItem = Colormaps.Default.Name;
+
+            ScaleBox.ItemsSource = Enum.GetNames<IntensityScale>();
+            ScaleBox.SelectedIndex = 0;
+
+            AxisBox.ItemsSource = new[] { "m/z", "Frequency (Hz)" };
+            AxisBox.SelectedIndex = 0;
+        }
+
+        private void OnPresetChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            // Fires while the ComboBox is being populated in the constructor.
+            if (!_initialised || PresetBox.SelectedItem is not string name)
+            {
+                return;
+            }
+            ApplyPreset(Presets.Get(name));
+        }
+
+        /// <summary>Copies a preset's settings into the controls so they can be tweaked.</summary>
+        private void ApplyPreset(SimulationPreset preset)
+        {
+            PresetDescription.Text = preset.Description;
+            DurationBox.Value = (decimal)(preset.Config.DurationSeconds * 1000);
+            DecayBox.Value = (decimal)(preset.Config.DefaultDecayConstant * 1000);
+            SnrBox.Value = (decimal)(preset.Config.SignalToNoise ?? 0);
+            AdcBox.Value = preset.Config.AdcBits ?? 0;
+            DriftBox.Value = (decimal)(preset.Species.Count > 0
+                ? preset.Species[0].FrequencyDriftPerSecond * 100
+                : 0);
+        }
+
+        /// <summary>
+        /// Colormap, intensity scale and axis choices only affect presentation, so they
+        /// re-render the existing result rather than re-running the transform.
+        /// </summary>
+        private void OnDisplayChanged(object? sender, RoutedEventArgs e)
+        {
+            if (!_initialised || _lastResult == null)
+            {
+                return;
+            }
+            Render(_lastResult);
+        }
+
+        private async void OnRun(object? sender, RoutedEventArgs e)
+        {
+            if (PresetBox.SelectedItem is not string presetName)
+            {
+                return;
+            }
+
+            RunButton.IsEnabled = false;
+            StatusText.Text = "Simulating and transforming...";
+            try
+            {
+                SimulationPreset preset = Presets.Get(presetName);
+                (OrbitrapSimulatorConfig config, List<IonSpecies> species) = BuildFromControls(preset);
+                CwtSettings settings = BuildSettings(config, species);
+
+                // The CWT of a long transient takes seconds; keep the UI responsive.
+                CwtWorkflow.Result result = await Task.Run(
+                    () => _workflow.RunSimulation(config, species, settings));
+
+                _lastResult = result;
+                Render(result);
+                StatusText.Text = Describe(result, settings);
+            }
+            catch (Exception exception)
+            {
+                StatusText.Text = $"Error: {exception.Message}";
+            }
+            finally
+            {
+                RunButton.IsEnabled = true;
+            }
+        }
+
+        private (OrbitrapSimulatorConfig, List<IonSpecies>) BuildFromControls(SimulationPreset preset)
+        {
+            OrbitrapSimulatorConfig baseConfig = preset.Config;
+            double snr = (double)(SnrBox.Value ?? 0);
+            int adcBits = (int)(AdcBox.Value ?? 0);
+
+            var config = new OrbitrapSimulatorConfig
+            {
+                CalibrationCoefficient = baseConfig.CalibrationCoefficient,
+                SamplingRate = baseConfig.SamplingRate,
+                DurationSeconds = (double)(DurationBox.Value ?? 16) / 1000.0,
+                Decay = baseConfig.Decay,
+                DefaultDecayConstant = (double)(DecayBox.Value ?? 500) / 1000.0,
+                SignalToNoise = snr > 0 ? snr : null,
+                PinkNoiseFraction = baseConfig.PinkNoiseFraction,
+                AdcBits = adcBits > 0 ? adcBits : null,
+                AdcFullScale = baseConfig.AdcFullScale,
+                Seed = baseConfig.Seed
+            };
+
+            // Copy the species, overriding drift with whatever the control says.
+            double drift = (double)(DriftBox.Value ?? 0) / 100.0;
+            var species = preset.Species.Select(s => new IonSpecies
+            {
+                MonoisotopicMass = s.MonoisotopicMass,
+                Charge = s.Charge,
+                Abundance = s.Abundance,
+                IsotopePeaks = s.IsotopePeaks,
+                DecayConstant = s.DecayConstant,
+                InitialPhase = s.InitialPhase,
+                FrequencyDriftPerSecond = drift
+            }).ToList();
+
+            return (config, species);
+        }
+
+        private CwtSettings BuildSettings(OrbitrapSimulatorConfig config, List<IonSpecies> species)
+        {
+            var settings = new CwtSettings
+            {
+                Voices = (int)(VoicesBox.Value ?? 48),
+                C0 = (float)(double)(C0Box.Value ?? 6),
+                MaxSamples = (int)(MaxSamplesBox.Value ?? 65536)
+            };
+
+            // Bracket the octaves around where the ions actually are. Running a throwaway
+            // simulation would be wasteful, so derive the frequencies directly.
+            var simulator = new OrbitrapSimulator(config);
+            var truth = new List<IsotopologueTruth>();
+            foreach (IonSpecies ion in species)
+            {
+                for (int k = 0; k < Math.Max(1, ion.IsotopePeaks); k++)
+                {
+                    truth.Add(new IsotopologueTruth
+                    {
+                        Mz = ion.MzForIsotope(k),
+                        Frequency = simulator.FrequencyForMz(ion.MzForIsotope(k)),
+                        FrequencyDriftPerSecond = ion.FrequencyDriftPerSecond
+                    });
+                }
+            }
+
+            int sampleCount = (int)Math.Round(config.DurationSeconds * config.SamplingRate);
+            double windowSeconds = Math.Min(sampleCount, settings.MaxSamples) / (double)config.SamplingRate;
+            (settings.StartOctave, settings.EndOctave) =
+                CwtWorkflow.BracketOctaves(truth, config.SamplingRate, settings.C0, windowSeconds);
+            return settings;
+        }
+
+        private void Render(CwtWorkflow.Result result)
+        {
+            PlaceholderText.IsVisible = false;
+
+            Colormap colormap = Colormaps.Get((string)(ColormapBox.SelectedItem ?? "viridis"));
+            IntensityScale scale = Enum.Parse<IntensityScale>((string)(ScaleBox.SelectedItem ?? "Linear"));
+
+            ScalogramImage.Source = ToBitmap(
+                result.Render(ScalogramWidth, ScalogramHeight, colormap, scale),
+                ScalogramWidth, ScalogramHeight);
+
+            TransientImage.Source = ToBitmap(
+                WaveformRenderer.ToRgba(result.Samples, TransientWidth, TransientHeight),
+                TransientWidth, TransientHeight);
+
+            PeakText.Text = FormatPeaks(result);
+            DrawTruthOverlay(result);
+        }
+
+        /// <summary>
+        /// Marks the true m/z of each simulated isotopologue along the right edge, so the
+        /// recovered ridge can be compared against ground truth by eye.
+        /// </summary>
+        private void DrawTruthOverlay(CwtWorkflow.Result result)
+        {
+            OverlayCanvas.Children.Clear();
+            if (TruthOverlayBox.IsChecked != true || result.GroundTruth == null)
+            {
+                return;
+            }
+
+            double[] frequencies = result.FrequencyAxis;
+            double height = OverlayCanvas.Bounds.Height;
+            if (height <= 0)
+            {
+                height = ScalogramHeight;
+            }
+
+            foreach (IsotopologueTruth truth in result.GroundTruth)
+            {
+                int row = NearestRow(frequencies, truth.Frequency);
+                if (row < 0)
+                {
+                    continue;
+                }
+                // The image puts high frequencies at the top, so invert the row.
+                double y = (1.0 - (double)row / (frequencies.Length - 1)) * height;
+                var marker = new Avalonia.Controls.Shapes.Line
+                {
+                    StartPoint = new Avalonia.Point(0, y),
+                    EndPoint = new Avalonia.Point(18, y),
+                    Stroke = Brushes.OrangeRed,
+                    StrokeThickness = 1.5
+                };
+                OverlayCanvas.Children.Add(marker);
+            }
+        }
+
+        private static int NearestRow(double[] axis, double value)
+        {
+            if (axis.Length == 0)
+            {
+                return -1;
+            }
+            int best = 0;
+            double bestDistance = Math.Abs(axis[0] - value);
+            for (int i = 1; i < axis.Length; i++)
+            {
+                double distance = Math.Abs(axis[i] - value);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
+        private string FormatPeaks(CwtWorkflow.Result result)
+        {
+            bool useMz = (string?)AxisBox.SelectedItem != "Frequency (Hz)";
+            var builder = new StringBuilder();
+            builder.AppendLine(useMz ? "  #      m/z    magnitude     ppm" : "  #   freq (Hz)  magnitude");
+
+            int rank = 1;
+            foreach (DetectedPeak peak in result.Peaks.Take(15))
+            {
+                double value = peak.Frequency;
+                if (!useMz)
+                {
+                    // Peaks were found against the m/z axis; convert back for display.
+                    value = result.FrequencyAxis[peak.RowIndex];
+                }
+
+                string ppm = string.Empty;
+                if (useMz && result.GroundTruth is { Count: > 0 })
+                {
+                    IsotopologueTruth nearest = result.GroundTruth
+                        .OrderBy(t => Math.Abs(t.Mz - peak.Frequency)).First();
+                    ppm = ((peak.Frequency - nearest.Mz) / nearest.Mz * 1e6).ToString("F0", CultureInfo.InvariantCulture);
+                }
+
+                builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "{0,3}  {1,10:F4}  {2,10:E2}  {3,6}", rank, value, peak.Magnitude, ppm));
+                rank++;
+            }
+
+            if (result.Peaks.Count == 0)
+            {
+                builder.AppendLine("  (no ridges above threshold)");
+            }
+            return builder.ToString();
+        }
+
+        private static string Describe(CwtWorkflow.Result result, CwtSettings settings)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine($"{result.Samples.Length} samples, {result.WindowSeconds * 1000:F2} ms");
+            builder.AppendLine($"octaves {settings.StartOctave}:{settings.EndOctave}, " +
+                               $"{settings.Voices} voices, {result.Modulus.GetLength(0)} rows");
+            builder.AppendLine($"backend {(settings.Backend ?? Transform.CwtBackends.Default).Name}");
+            builder.Append($"{result.Peaks.Count} ridge(s) detected");
+            return builder.ToString();
+        }
+
+        /// <summary>Wraps an RGBA buffer in an Avalonia bitmap.</summary>
+        private static WriteableBitmap ToBitmap(byte[] rgba, int width, int height)
+        {
+            var bitmap = new WriteableBitmap(
+                new Avalonia.PixelSize(width, height),
+                new Avalonia.Vector(96, 96),
+                PixelFormat.Rgba8888,
+                AlphaFormat.Unpremul);
+
+            using (ILockedFramebuffer buffer = bitmap.Lock())
+            {
+                System.Runtime.InteropServices.Marshal.Copy(rgba, 0, buffer.Address, rgba.Length);
+            }
+            return bitmap;
+        }
+    }
+}

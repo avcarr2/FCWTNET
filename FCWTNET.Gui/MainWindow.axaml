@@ -1,0 +1,149 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FCWTNET.Gui.MainWindow"
+        Title="FCWTNET - Orbitrap CWT Explorer"
+        Width="1280" Height="860"
+        MinWidth="900" MinHeight="600"
+        Background="#12121A">
+
+  <Grid ColumnDefinitions="320,*">
+
+    <!-- Controls -->
+    <Border Grid.Column="0" Background="#1B1B26" Padding="16">
+      <ScrollViewer>
+        <StackPanel Spacing="14">
+
+          <TextBlock Text="Simulation" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Preset" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="PresetBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnPresetChanged"/>
+          </StackPanel>
+
+          <TextBlock x:Name="PresetDescription" TextWrapping="Wrap"
+                     Foreground="#8A8AA0" FontSize="11"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Duration (ms)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="DurationBox" Minimum="0.1" Maximum="1000"
+                           Increment="1" Value="16" FormatString="0.##"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Decay constant (ms)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="DecayBox" Minimum="0.01" Maximum="10000"
+                           Increment="1" Value="500" FormatString="0.##"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Signal-to-noise (0 = noiseless)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="SnrBox" Minimum="0" Maximum="100000"
+                           Increment="10" Value="100" FormatString="0.#"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="ADC bits (0 = no quantisation)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="AdcBox" Minimum="0" Maximum="32"
+                           Increment="1" Value="0" FormatString="0"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Frequency drift (%/s)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="DriftBox" Minimum="-100" Maximum="100"
+                           Increment="1" Value="0" FormatString="0.###"/>
+          </StackPanel>
+
+          <Separator Background="#2A2A38"/>
+          <TextBlock Text="Transform" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Voices per octave" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="VoicesBox" Minimum="4" Maximum="512"
+                           Increment="8" Value="48" FormatString="0"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Morlet c0" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="C0Box" Minimum="1" Maximum="100"
+                           Increment="1" Value="6" FormatString="0.##"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Max samples" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="MaxSamplesBox" Minimum="1024" Maximum="1048576"
+                           Increment="8192" Value="65536" FormatString="0"/>
+          </StackPanel>
+
+          <Separator Background="#2A2A38"/>
+          <TextBlock Text="Display" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Colormap" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="ColormapBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnDisplayChanged"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Intensity scale" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="ScaleBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnDisplayChanged"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Vertical axis" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="AxisBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnDisplayChanged"/>
+          </StackPanel>
+
+          <CheckBox x:Name="TruthOverlayBox" Content="Mark true m/z" IsChecked="True"
+                    Foreground="#C8C8D8" IsCheckedChanged="OnDisplayChanged"/>
+
+          <Button x:Name="RunButton" Content="Run" Click="OnRun"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Background="#3B5BDB" Foreground="White" Padding="0,10"
+                  FontWeight="SemiBold"/>
+
+          <TextBlock x:Name="StatusText" TextWrapping="Wrap"
+                     Foreground="#8A8AA0" FontSize="11"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Scalogram and readouts -->
+    <Grid Grid.Column="1" RowDefinitions="*,220" Margin="12">
+
+      <Border Grid.Row="0" Background="#0C0C12" CornerRadius="4" ClipToBounds="True">
+        <Grid>
+          <Image x:Name="ScalogramImage" Stretch="Fill"
+                 RenderOptions.BitmapInterpolationMode="None"/>
+          <!-- Ground-truth markers and the axis labels are drawn over the bitmap. -->
+          <Canvas x:Name="OverlayCanvas" IsHitTestVisible="False"/>
+          <TextBlock x:Name="PlaceholderText"
+                     Text="Press Run to simulate a transient and transform it."
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="#55556A"/>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Background="#15151E" CornerRadius="4" Margin="0,12,0,0" Padding="12">
+        <Grid ColumnDefinitions="*,*">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="Detected peaks" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+            <ScrollViewer Height="160" Background="#0C0C12" Padding="8">
+              <TextBlock x:Name="PeakText" FontFamily="monospace" FontSize="11"
+                         Foreground="#C8C8D8" TextWrapping="NoWrap"/>
+            </ScrollViewer>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="6" Margin="16,0,0,0">
+            <TextBlock Text="Transient" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+            <Border Background="#0C0C12" CornerRadius="3" Height="160">
+              <Image x:Name="TransientImage" Stretch="Fill"
+                     RenderOptions.BitmapInterpolationMode="None"/>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
