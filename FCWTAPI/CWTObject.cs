@@ -33,7 +33,13 @@ namespace FCWTNET
         public double[]? TimeAxis { get; private set; }
         public string? WorkingPath { get; }
 
-        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, 
+        /// <summary>
+        /// Transform implementation used by <see cref="PerformCWT"/>. Defaults to native
+        /// fCWT on Windows and the managed Morlet CWT elsewhere; set explicitly to pin one.
+        /// </summary>
+        public Transform.ICwtBackend Backend { get; set; } = Transform.CwtBackends.Default;
+
+        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes,
             int? samplingRate = null, double? calibrationCoefficient = null, string? workingPath = null)
         {
             InputData = inputData;
@@ -56,7 +62,7 @@ namespace FCWTNET
         /// </summary>
         public void PerformCWT()
         {
-            FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes, 
+            Backend.Transform(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes,
                 out double[][] flippedReal, out double[][] flippedImag);
             double[][] real = new double[flippedReal.Length][];
             double[][] imag = new double[flippedImag.Length][];
@@ -80,14 +86,12 @@ namespace FCWTNET
         /// </summary>
         public void CalculateFrequencyAxis()
         {
-            int octaveNum = 1 + Pendoctave - Psoctave;
-            double deltaA = 1 / Convert.ToDouble(Pnbvoice);
-            double[] freqArray = new double[octaveNum * Pnbvoice];
-            for (int i = 1 ; i <= octaveNum * Pnbvoice; i++)
-            {
-                freqArray[^i] = C0 / Math.Pow(2, (1 + (i) * deltaA));
-            }
-            FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, SamplingRate, CalibrationCoefficient);            
+            // Delegates to CwtScales so the axis always describes the rows the transform
+            // backend actually produced. Frequencies are normalised (cycles per sample),
+            // ascending, which is what CWTFrequencies expects: it multiplies by the
+            // sampling rate to reach Hz, and binary-searches the axis assuming it is sorted.
+            double[] freqArray = Transform.CwtScales.AscendingCentreFrequencies(Psoctave, Pendoctave, Pnbvoice, C0);
+            FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, SamplingRate, CalibrationCoefficient);
         }
         /// <summary>
         /// Generates an array corresponding to the individual timepoints of the transient operated on by the CWT

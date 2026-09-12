@@ -15,7 +15,11 @@ namespace TestFCWTAPI
         {
 
         }
+        // Exercises the native fCWT P/Invoke directly. fCWT.dll is a Windows x64 PE
+        // binary with no Linux/macOS equivalent in the repo, so this can only run there.
+        // The cross-platform path is covered by ManagedMorletCwtTests.
         [Test]
+        [Platform("Win", Reason = "Requires the native Windows-only fCWT.dll")]
         public static void TestFCWT()
         {
             double[] testValues = new double[1000];
@@ -114,7 +118,11 @@ namespace TestFCWTAPI
             Assert.AreEqual(1.41421, modArray[0][0], 0.001);
 
         }
+        // Native-only, and it pops open a browser window via heatmap.Show(), so it is
+        // also marked Explicit to keep it out of unattended runs.
         [Test]
+        [Explicit("Opens an interactive Plotly window")]
+        [Platform("Win", Reason = "Requires the native Windows-only fCWT.dll")]
         public void TestAPIResults()
         {
             float[] input = Enumerable.Range(0, 1000).Select(i => (float)Math.Cos(0.5 * Math.PI * (double)i)).ToArray();
