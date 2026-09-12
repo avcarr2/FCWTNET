@@ -105,33 +105,6 @@ namespace FCWTNET
             }
             return dim2Smoothing;
         }
-        public static double[,] EllipticGaussianConvolution(double[,] inputData, double frequencyDeviation, double timeDeviation)
-        {
-            if (inputData.GetLength(0) < (frequencyDeviation * 6 + 1) || inputData.GetLength(1) < (timeDeviation * 6 + 1))
-            {
-                throw new ArgumentException("Matrix may not be smaller than the convoluting Gaussian kernel");
-            }
-            double[,] frequencyKernel = CalculateNormalized1DSampleKernel(frequencyDeviation);
-            double[,] timeKernel = CalculateNormalized1DSampleKernel(timeDeviation);
-            // Calculates the 1D kernel to be used for smoothing
-            double[,] frequencySmoothing = new double[inputData.GetLength(0), inputData.GetLength(1)];
-            double[,] timeSmoothing = new double[inputData.GetLength(0), inputData.GetLength(1)];
-            // x-direction smoothing
-            for (int i = 0; i < inputData.GetLength(0); i++)
-            {
-                // Calculates each point in the x direction
-                for (int j = 0; j < inputData.GetLength(1); j++)
-                    frequencySmoothing[i, j] = ProcessPoint(inputData, i, j, frequencyKernel, 0);
-            }
-            //y-direction smoothing
-            for (int i = 0; i < inputData.GetLength(0); i++)
-            {
-                //Calculates each point in the y direction from the x smoothed array res 1
-                for (int j = 0; j < inputData.GetLength(1); j++)
-                    timeSmoothing[i, j] = ProcessPoint(frequencySmoothing, i, j, timeKernel, 1);
-            }
-            return timeSmoothing;
-        }
         /// <summary>
         /// Performs 2D Gaussian smoothing using an elliptic Gaussian kernel
         /// </summary>
