@@ -128,7 +128,7 @@ namespace TestFCWTAPI
 
             IEnumerable<double[]> realEnumerable = realArray.AsEnumerable(); 
 
-            GenericChart.GenericChart heatmap = Chart2D.Chart.Heatmap<double[], double, double>(realEnumerable,
+            GenericChart heatmap = Chart2D.Chart.Heatmap<double[], double, double>(realEnumerable,
                                                                                                              xlabels,
                                                                                                              ylabels);
             heatmap.Show(); 
