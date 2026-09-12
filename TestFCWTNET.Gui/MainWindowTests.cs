@@ -175,6 +175,73 @@ namespace TestFCWTNET.Gui
             }
         }
 
+        /// <summary>
+        /// Renders a myoglobin charge state envelope. Each charge state sits at its own
+        /// frequency, so the scalogram should show a ladder of ridges rather than one.
+        /// Set FCWTNET_GUI_ENVELOPE to a path to keep the image, and FCWTNET_GUI_MODE to
+        /// Native or Denatured to pick the ionisation mode.
+        /// </summary>
+        [AvaloniaTest]
+        public void MyoglobinChargeEnvelopeRenders()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            string mode = Environment.GetEnvironmentVariable("FCWTNET_GUI_MODE") ?? "Denatured";
+            string preset = mode.Equals("Native", StringComparison.OrdinalIgnoreCase)
+                ? "myoglobin-native"
+                : "myoglobin-denatured";
+
+            Find<ComboBox>(window, "PresetBox").SelectedItem = preset;
+
+            // The charge envelope controls should reveal themselves for these presets.
+            var chargePanel = window.GetVisualDescendants().OfType<StackPanel>()
+                .First(p => p.Name == "ChargePanel");
+            Assert.IsTrue(chargePanel.IsVisible, "charge envelope controls should be shown");
+
+            var summary = Find<TextBlock>(window, "EnvelopeSummary");
+            Assert.IsNotEmpty(summary.Text ?? string.Empty, "the envelope summary should be populated");
+            TestContext.WriteLine($"{preset}: {summary.Text}");
+
+            // Keep the run manageable: a wide envelope with full isotope clusters is a lot
+            // of components.
+            Find<NumericUpDown>(window, "IsotopePeaksBox").Value = 8;
+            Find<NumericUpDown>(window, "MaxSamplesBox").Value = 32768;
+            Find<NumericUpDown>(window, "VoicesBox").Value = 64;
+            Find<NumericUpDown>(window, "DurationBox").Value = 8;
+            // Adjacent charge states near the base peak differ by only ~3% in frequency,
+            // so the wavelet needs enough cycles to tell them apart; c0 = 6 (which suits a
+            // single isolated peak) resolves nothing finer than ~39%.
+            double c0 = (double)(Environment.GetEnvironmentVariable("FCWTNET_GUI_C0") is { } raw
+                && double.TryParse(raw, out double parsed) ? parsed : 80.0);
+            Find<NumericUpDown>(window, "C0Box").Value = (decimal)c0;
+
+            var scalogram = Find<Image>(window, "ScalogramImage");
+            RaiseClick(window, "RunButton");
+            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(180));
+
+            var status = Find<TextBlock>(window, "StatusText");
+            var peaks = Find<TextBlock>(window, "PeakText");
+            TestContext.WriteLine(status.Text);
+            TestContext.WriteLine(peaks.Text);
+
+            StringAssert.Contains("ridge", status.Text!);
+
+            for (int i = 0; i < 10; i++)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            }
+
+            string? path = Environment.GetEnvironmentVariable("FCWTNET_GUI_ENVELOPE");
+            if (!string.IsNullOrEmpty(path))
+            {
+                var frame = window.CaptureRenderedFrame();
+                Assert.IsNotNull(frame);
+                frame!.Save(path);
+                TestContext.WriteLine($"saved {path}");
+            }
+        }
+
         [AvaloniaTest]
         public void ChangingColormapDoesNotThrowBeforeARun()
         {

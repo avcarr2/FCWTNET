@@ -4,22 +4,73 @@ using System.Linq;
 
 namespace FCWTNET.Simulation
 {
+    /// <summary>
+    /// A protein plus the envelope settings that turn it into charge states. Presets that
+    /// carry one can have their envelope regenerated -- switching between native and
+    /// denatured, or moving the centroid -- without rebuilding the preset.
+    /// </summary>
+    public class ChargeEnvelopeTemplate
+    {
+        public ChargeEnvelopeTemplate(double monoisotopicMass, ChargeStateEnvelopeOptions options,
+            int? isotopePeaks = null)
+        {
+            MonoisotopicMass = monoisotopicMass;
+            Options = options;
+            IsotopePeaks = isotopePeaks;
+        }
+
+        public double MonoisotopicMass { get; }
+        public ChargeStateEnvelopeOptions Options { get; }
+        public int? IsotopePeaks { get; }
+
+        /// <summary>Expand into one species per charge state.</summary>
+        public IReadOnlyList<IonSpecies> CreateSpecies(ChargeStateEnvelopeOptions? overrideOptions = null)
+        {
+            return ChargeStateEnvelope.CreateSpecies(
+                MonoisotopicMass, overrideOptions ?? Options, IsotopePeaks);
+        }
+
+        /// <summary>The charge states and abundances this template produces.</summary>
+        public IReadOnlyList<ChargeStateAbundance> Envelope(ChargeStateEnvelopeOptions? overrideOptions = null)
+        {
+            return ChargeStateEnvelope.Generate(MonoisotopicMass, overrideOptions ?? Options);
+        }
+    }
+
     /// <summary>A named simulation scenario: a configuration plus the species to simulate.</summary>
     public class SimulationPreset
     {
         public SimulationPreset(string name, string description,
-            OrbitrapSimulatorConfig config, IReadOnlyList<IonSpecies> species)
+            OrbitrapSimulatorConfig config, IReadOnlyList<IonSpecies> species,
+            ChargeEnvelopeTemplate? chargeEnvelope = null, float suggestedC0 = 6f)
         {
             Name = name;
             Description = description;
             Config = config;
             Species = species;
+            ChargeEnvelope = chargeEnvelope;
+            SuggestedC0 = suggestedC0;
         }
+
+        /// <summary>
+        /// Morlet c0 that suits this scenario. A Morlet resolves components about
+        /// 2*sqrt(2*ln2)/c0 apart in relative frequency, so a single isolated peak is fine
+        /// at c0 = 6 (~39%) while a charge state envelope whose neighbours differ by ~3%
+        /// needs roughly 80. See <see cref="Transform.CwtScales.RelativeFrequencyResolution"/>.
+        /// </summary>
+        public float SuggestedC0 { get; }
 
         public string Name { get; }
         public string Description { get; }
         public OrbitrapSimulatorConfig Config { get; }
         public IReadOnlyList<IonSpecies> Species { get; }
+
+        /// <summary>
+        /// Set when this preset's species come from a charge state envelope, so callers
+        /// can regenerate it with different ionisation settings. Null for presets whose
+        /// species are specified directly.
+        /// </summary>
+        public ChargeEnvelopeTemplate? ChargeEnvelope { get; }
 
         public SimulationResult Run() => new OrbitrapSimulator(Config).Simulate(Species);
     }
@@ -68,6 +119,8 @@ namespace FCWTNET.Simulation
                 SinglePeak(),
                 PeptideIsotopes(),
                 MyoglobinChargeState(),
+                MyoglobinDenatured(),
+                MyoglobinNative(),
                 Mixture(),
                 FastDecay(),
                 FrequencyDrift(),
@@ -145,6 +198,50 @@ namespace FCWTNET.Simulation
                         IsotopePeaks = 12
                     }
                 });
+        }
+
+        /// <summary>
+        /// Myoglobin from denaturing electrospray: a broad envelope running roughly 8+ to
+        /// 26+, centred near 17+. Each charge state lands at its own frequency, so the
+        /// scalogram shows a ladder of ridges spanning about an octave.
+        /// </summary>
+        public static SimulationPreset MyoglobinDenatured()
+        {
+            var template = new ChargeEnvelopeTemplate(
+                MyoglobinMass,
+                new ChargeStateEnvelopeOptions { Mode = IonizationMode.Denatured },
+                // A 17 kDa protein has a wide isotope cluster; the full count is used so
+                // each charge state's centroid m/z is not skewed by truncating the tail.
+                isotopePeaks: IsotopeEnvelope.SuggestedPeakCount(MyoglobinMass));
+
+            return new SimulationPreset(
+                "myoglobin-denatured",
+                "Apo-myoglobin under denaturing ESI: a broad charge envelope (~8+ to 26+, centred near 17+), one ridge per charge state.",
+                BaseConfig(),
+                template.CreateSpecies(),
+                template,
+                // Adjacent charge states near 17+ differ by ~3% in frequency.
+                suggestedC0: 80f);
+        }
+
+        /// <summary>
+        /// Myoglobin from native electrospray: a narrow envelope near the Rayleigh limit,
+        /// roughly 8+ to 12+. Far fewer ridges, packed much more closely in frequency.
+        /// </summary>
+        public static SimulationPreset MyoglobinNative()
+        {
+            var template = new ChargeEnvelopeTemplate(
+                MyoglobinMass,
+                new ChargeStateEnvelopeOptions { Mode = IonizationMode.Native },
+                isotopePeaks: IsotopeEnvelope.SuggestedPeakCount(MyoglobinMass));
+
+            return new SimulationPreset(
+                "myoglobin-native",
+                "Apo-myoglobin under native ESI: a narrow charge envelope near the Rayleigh limit (~8+ to 12+), tightly spaced ridges.",
+                BaseConfig(),
+                template.CreateSpecies(),
+                template,
+                suggestedC0: 80f);
         }
 
         /// <summary>Two species whose isotope clusters interleave.</summary>

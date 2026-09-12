@@ -79,6 +79,46 @@ namespace FCWTNET.Transform
             return c0 / (2 * Math.PI * scale);
         }
 
+        /// <summary>
+        /// Fractional frequency resolution of a Morlet wavelet with central frequency c0,
+        /// as the FWHM of its frequency response divided by its centre frequency.
+        ///
+        /// In the frequency domain the wavelet is exp(-(a*w - c0)^2 / 2): a Gaussian of
+        /// unit standard deviation in a*w, centred at c0. Its FWHM is therefore
+        /// 2*sqrt(2*ln2) in those units, and relative to the centre frequency c0 that is
+        ///
+        ///     df/f = 2*sqrt(2*ln2) / c0
+        ///
+        /// Two components closer together than this merge into one ridge. This is the
+        /// knob that decides whether a charge state envelope resolves: adjacent charge
+        /// states of a 17 kDa protein near 17+ differ by about 3% in frequency, which
+        /// needs c0 of roughly 80, not the 6 that suits a single well-separated peak.
+        ///
+        /// Raising c0 buys frequency resolution at the cost of time resolution -- the
+        /// wavelet spans more cycles -- which is the trade the CWT exists to let you make.
+        /// </summary>
+        public static double RelativeFrequencyResolution(double c0)
+        {
+            if (c0 <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(c0), "c0 must be positive");
+            }
+            return 2 * Math.Sqrt(2 * Math.Log(2)) / c0;
+        }
+
+        /// <summary>
+        /// Smallest c0 that can separate two components differing by the given fraction of
+        /// their frequency. The inverse of <see cref="RelativeFrequencyResolution"/>.
+        /// </summary>
+        public static double C0ForRelativeResolution(double relativeSeparation)
+        {
+            if (relativeSeparation <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(relativeSeparation), "separation must be positive");
+            }
+            return 2 * Math.Sqrt(2 * Math.Log(2)) / relativeSeparation;
+        }
+
         /// <summary>Scale whose Morlet wavelet is centred on the given normalised frequency.</summary>
         public static double ScaleForNormalizedFrequency(double normalizedFrequency, double c0)
         {

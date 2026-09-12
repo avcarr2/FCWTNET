@@ -54,6 +54,40 @@
                            Increment="1" Value="0" FormatString="0.###"/>
           </StackPanel>
 
+          <!-- Only meaningful for presets built from a charge state envelope. -->
+          <StackPanel x:Name="ChargePanel" Spacing="10" IsVisible="False">
+            <Separator Background="#2A2A38"/>
+            <TextBlock Text="Charge envelope" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#E8E8F0"/>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Ionization mode" Foreground="#A0A0B4" FontSize="12"/>
+              <ComboBox x:Name="IonizationBox" HorizontalAlignment="Stretch"
+                        SelectionChanged="OnIonizationChanged"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Centroid charge (0 = from model)" Foreground="#A0A0B4" FontSize="12"/>
+              <NumericUpDown x:Name="CentroidBox" Minimum="0" Maximum="200"
+                             Increment="1" Value="0" FormatString="0.##"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Envelope width (0 = from model)" Foreground="#A0A0B4" FontSize="12"/>
+              <NumericUpDown x:Name="EnvelopeWidthBox" Minimum="0" Maximum="50"
+                             Increment="0.5" Value="0" FormatString="0.##"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Isotope peaks per charge state" Foreground="#A0A0B4" FontSize="12"/>
+              <NumericUpDown x:Name="IsotopePeaksBox" Minimum="1" Maximum="80"
+                             Increment="1" Value="24" FormatString="0"/>
+            </StackPanel>
+
+            <TextBlock x:Name="EnvelopeSummary" TextWrapping="Wrap"
+                       Foreground="#8A8AA0" FontSize="11"/>
+          </StackPanel>
+
           <Separator Background="#2A2A38"/>
           <TextBlock Text="Transform" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
 
@@ -65,7 +99,7 @@
 
           <StackPanel Spacing="4">
             <TextBlock Text="Morlet c0" Foreground="#A0A0B4" FontSize="12"/>
-            <NumericUpDown x:Name="C0Box" Minimum="1" Maximum="100"
+            <NumericUpDown x:Name="C0Box" Minimum="1" Maximum="500"
                            Increment="1" Value="6" FormatString="0.##"/>
           </StackPanel>
 

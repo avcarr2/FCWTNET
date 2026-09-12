@@ -64,6 +64,9 @@ namespace FCWTNET.Gui
 
             AxisBox.ItemsSource = new[] { "m/z", "Frequency (Hz)" };
             AxisBox.SelectedIndex = 0;
+
+            IonizationBox.ItemsSource = Enum.GetNames<IonizationMode>();
+            IonizationBox.SelectedIndex = 0;
         }
 
         private void OnPresetChanged(object? sender, SelectionChangedEventArgs e)
@@ -87,6 +90,80 @@ namespace FCWTNET.Gui
             DriftBox.Value = (decimal)(preset.Species.Count > 0
                 ? preset.Species[0].FrequencyDriftPerSecond * 100
                 : 0);
+
+            // Charge envelope controls only apply to presets built from one.
+            ChargeEnvelopeTemplate? template = preset.ChargeEnvelope;
+            ChargePanel.IsVisible = template != null;
+            if (template != null)
+            {
+                IonizationBox.SelectedItem = template.Options.Mode.ToString();
+                // 0 means "use the model", so clear any previous override.
+                CentroidBox.Value = (decimal)(template.Options.CentroidCharge ?? 0);
+                EnvelopeWidthBox.Value = (decimal)(template.Options.Width ?? 0);
+                IsotopePeaksBox.Value = template.IsotopePeaks
+                    ?? IsotopeEnvelope.SuggestedPeakCount(template.MonoisotopicMass);
+                UpdateEnvelopeSummary();
+            }
+        }
+
+        private void OnIonizationChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (!_initialised)
+            {
+                return;
+            }
+            // Switching mode changes the model defaults, so drop stale overrides.
+            CentroidBox.Value = 0;
+            EnvelopeWidthBox.Value = 0;
+            UpdateEnvelopeSummary();
+        }
+
+        /// <summary>
+        /// Shows which charge states the current settings produce, so the envelope can be
+        /// tuned without running the whole transform.
+        /// </summary>
+        private void UpdateEnvelopeSummary()
+        {
+            ChargeEnvelopeTemplate? template = CurrentPreset()?.ChargeEnvelope;
+            if (template == null)
+            {
+                EnvelopeSummary.Text = string.Empty;
+                return;
+            }
+
+            try
+            {
+                IReadOnlyList<ChargeStateAbundance> envelope = template.Envelope(BuildEnvelopeOptions(template));
+                ChargeStateAbundance top = envelope.OrderByDescending(c => c.Abundance).First();
+                EnvelopeSummary.Text =
+                    $"{envelope.Count} charge states, {envelope.Min(c => c.Charge)}+ to {envelope.Max(c => c.Charge)}+\n" +
+                    $"base peak {top.Charge}+ at m/z {top.Mz:F1}\n" +
+                    $"m/z {envelope.Min(c => c.Mz):F0} to {envelope.Max(c => c.Mz):F0}";
+            }
+            catch (Exception exception)
+            {
+                EnvelopeSummary.Text = exception.Message;
+            }
+        }
+
+        private SimulationPreset? CurrentPreset()
+        {
+            return PresetBox.SelectedItem is string name ? Presets.Get(name) : null;
+        }
+
+        /// <summary>Envelope options from the controls; 0 means "use the model".</summary>
+        private ChargeStateEnvelopeOptions BuildEnvelopeOptions(ChargeEnvelopeTemplate template)
+        {
+            ChargeStateEnvelopeOptions options = template.Options.Clone();
+            if (IonizationBox.SelectedItem is string mode)
+            {
+                options.Mode = Enum.Parse<IonizationMode>(mode);
+            }
+            double centroid = (double)(CentroidBox.Value ?? 0);
+            double width = (double)(EnvelopeWidthBox.Value ?? 0);
+            options.CentroidCharge = centroid > 0 ? centroid : null;
+            options.Width = width > 0 ? width : null;
+            return options;
         }
 
         /// <summary>
@@ -155,18 +232,33 @@ namespace FCWTNET.Gui
                 Seed = baseConfig.Seed
             };
 
-            // Copy the species, overriding drift with whatever the control says.
             double drift = (double)(DriftBox.Value ?? 0) / 100.0;
-            var species = preset.Species.Select(s => new IonSpecies
+
+            // When the preset is built from a charge envelope, rebuild it from the
+            // controls so ionisation mode, centroid and width take effect. Otherwise copy
+            // the preset's species, overriding drift.
+            List<IonSpecies> species;
+            if (preset.ChargeEnvelope is { } template)
             {
-                MonoisotopicMass = s.MonoisotopicMass,
-                Charge = s.Charge,
-                Abundance = s.Abundance,
-                IsotopePeaks = s.IsotopePeaks,
-                DecayConstant = s.DecayConstant,
-                InitialPhase = s.InitialPhase,
-                FrequencyDriftPerSecond = drift
-            }).ToList();
+                species = ChargeStateEnvelope.CreateSpecies(
+                    template.MonoisotopicMass,
+                    BuildEnvelopeOptions(template),
+                    isotopePeaks: (int)(IsotopePeaksBox.Value ?? 24),
+                    frequencyDriftPerSecond: drift).ToList();
+            }
+            else
+            {
+                species = preset.Species.Select(s => new IonSpecies
+                {
+                    MonoisotopicMass = s.MonoisotopicMass,
+                    Charge = s.Charge,
+                    Abundance = s.Abundance,
+                    IsotopePeaks = s.IsotopePeaks,
+                    DecayConstant = s.DecayConstant,
+                    InitialPhase = s.InitialPhase,
+                    FrequencyDriftPerSecond = drift
+                }).ToList();
+            }
 
             return (config, species);
         }
@@ -324,6 +416,10 @@ namespace FCWTNET.Gui
             builder.AppendLine($"{result.Samples.Length} samples, {result.WindowSeconds * 1000:F2} ms");
             builder.AppendLine($"octaves {settings.StartOctave}:{settings.EndOctave}, " +
                                $"{settings.Voices} voices, {result.Modulus.GetLength(0)} rows");
+            // The wavelet's own bandwidth decides what can be told apart at all, so it is
+            // worth seeing next to the result.
+            double resolution = Transform.CwtScales.RelativeFrequencyResolution(settings.C0);
+            builder.AppendLine($"c0 {settings.C0:F0}: resolves components >{resolution * 100:F1}% apart");
             builder.AppendLine($"backend {(settings.Backend ?? Transform.CwtBackends.Default).Name}");
             builder.Append($"{result.Peaks.Count} ridge(s) detected");
             return builder.ToString();

@@ -20,6 +20,32 @@ namespace FCWTNET.Analysis
 
         /// <summary>Transform implementation; null selects the platform default.</summary>
         public ICwtBackend? Backend { get; set; }
+
+        /// <summary>Ignore ridges below this fraction of the strongest one.</summary>
+        public double PeakRelativeThreshold { get; set; } = 0.05;
+
+        /// <summary>
+        /// Minimum separation between reported ridges, in rows. Null derives one from
+        /// <see cref="Voices"/> and <see cref="C0"/>: a component occupies roughly
+        /// c0-dependent bandwidth, so suppressing anything closer than half the wavelet's
+        /// own resolution keeps a single peak from being reported twice without merging
+        /// genuinely distinct neighbours -- which matters for a charge state envelope,
+        /// where adjacent states can sit only two or three voices apart.
+        /// </summary>
+        public int? PeakMinimumRowSeparation { get; set; }
+
+        /// <summary>The row separation actually used.</summary>
+        public int EffectivePeakSeparation()
+        {
+            if (PeakMinimumRowSeparation.HasValue)
+            {
+                return Math.Max(1, PeakMinimumRowSeparation.Value);
+            }
+            // Rows per octave is Voices; the wavelet's FWHM in octaves is
+            // log2(1 + df/f), so half of that in rows is a conservative floor.
+            double resolutionOctaves = Math.Log2(1 + CwtScales.RelativeFrequencyResolution(C0));
+            return Math.Max(1, (int)Math.Round(0.5 * resolutionOctaves * Voices));
+        }
     }
 
     /// <summary>
@@ -97,8 +123,8 @@ namespace FCWTNET.Analysis
             double[,] modulus = cwt.OutputCWT!.ModulusCalculation();
             IReadOnlyList<DetectedPeak> peaks = RidgeExtraction.FindPeaks(
                 modulus, cwt.FrequencyAxis.MZValues!,
-                relativeThreshold: 0.1,
-                minimumRowSeparation: Math.Max(1, settings.Voices / 8));
+                relativeThreshold: settings.PeakRelativeThreshold,
+                minimumRowSeparation: settings.EffectivePeakSeparation());
 
             return new Result
             {

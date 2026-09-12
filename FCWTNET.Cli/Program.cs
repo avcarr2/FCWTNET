@@ -168,7 +168,8 @@ Analysis options:
                 int maxSamples = options.GetInt("max-samples", 65536);
                 double[] samples = result.Samples.Take(maxSamples).ToArray();
                 AnalyzeTransient(preset.Name, samples, result.SamplingRate,
-                    result.CalibrationCoefficient, outputDirectory, options, result.GroundTruth);
+                    result.CalibrationCoefficient, outputDirectory, options, result.GroundTruth,
+                    preset.SuggestedC0);
             }
 
             Console.WriteLine();
@@ -178,11 +179,14 @@ Analysis options:
 
         private static void AnalyzeTransient(string name, double[] samples, int samplingRate,
             double calibrationCoefficient, string outputDirectory, CommandLine options,
-            IReadOnlyList<IsotopologueTruth>? groundTruth)
+            IReadOnlyList<IsotopologueTruth>? groundTruth, float defaultC0 = 6f)
         {
             (int startOctave, int endOctave) = options.GetOctaveRange("octaves", 2, 6);
             int voices = options.GetInt("voices", 48);
-            float c0 = (float)options.GetDouble("c0", 6.0);
+            // Each preset declares the c0 its scenario needs: a charge state envelope
+            // whose neighbours differ by ~3% cannot be resolved by the c0 = 6 that suits
+            // a single isolated peak.
+            float c0 = (float)options.GetDouble("c0", defaultC0);
             Colormap colormap = Colormaps.Get(options.GetString("colormap", "viridis"));
             IntensityScale scale = ParseScale(options.GetString("scale", "linear"));
 
@@ -202,6 +206,7 @@ Analysis options:
 
             Console.WriteLine($"  CWT: octaves {startOctave}:{endOctave}, {voices} voices, c0 {c0}, " +
                               $"backend {backend.Name}, {samples.Length} samples");
+            Console.WriteLine($"  resolves components >{CwtScales.RelativeFrequencyResolution(c0) * 100:F1}% apart");
 
             var cwt = new CWTObject(samples, startOctave, endOctave, voices, c0, 0, false,
                 samplingRate, calibrationCoefficient, outputDirectory)

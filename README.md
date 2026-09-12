@@ -71,6 +71,38 @@ s(t) = sum_i  a_i * env(t) * cos(phi_i(t) + phi_i0)  + noise
 coefficient, sampling rate, then one sample per line), so simulated transients flow
 through the existing pipeline unchanged, with the ground truth written alongside as JSON.
 
+### Charge state envelopes
+
+`ChargeStateEnvelope` turns a protein mass into a distribution of charge states, in
+either of the two regimes an Orbitrap user actually chooses between:
+
+- **Native.** A folded protein cannot hold more charge than its surface supports. The
+  Rayleigh limit for a droplet of protein density gives `z ≈ 0.0778·√M`
+  (Fernández de la Mora, 2000), which puts myoglobin near 10+ and produces a narrow
+  envelope — about five charge states.
+- **Denatured.** An unfolded chain exposes far more basic sites and charges past the
+  Rayleigh limit. Envelopes centre near m/z 1000 more or less regardless of protein, so
+  the centroid goes as `M/1000` — myoglobin near 17+, spread over roughly 8+ to 26+.
+
+The centroid, width, charge range, abundance threshold and state count are all
+overridable, so the model is a starting point rather than a fixed answer:
+
+```csharp
+var species = ChargeStateEnvelope.CreateSpecies(
+    monoisotopicMass: 16940,
+    new ChargeStateEnvelopeOptions
+    {
+        Mode = IonizationMode.Denatured,
+        CentroidCharge = 15,   // null uses the model
+        Width = 2.5,           // null uses the model
+        RelativeThreshold = 0.05
+    },
+    isotopePeaks: 8);
+```
+
+Presets built this way expose a `ChargeEnvelope` template, which is how the desktop app
+regenerates the envelope live when you switch mode or move the centroid.
+
 ### Presets
 
 | Preset | What it shows |
@@ -78,6 +110,8 @@ through the existing pipeline unchanged, with the ground truth written alongside
 | `single-peak` | One ion, no decay or noise — the cleanest check |
 | `peptide-isotopes` | A 2+ peptide with an averagine isotope cluster |
 | `myoglobin-13plus` | Apo-myoglobin 13+, matching the bundled sample transient |
+| `myoglobin-denatured` | A broad charge envelope, ~8+ to 26+, one ridge per charge state |
+| `myoglobin-native` | A narrow envelope near the Rayleigh limit, ~8+ to 12+ |
 | `mixture` | Two species with interleaving isotope clusters |
 | `fast-decay` | Decay short against the acquisition; the ridge fades |
 | `frequency-drift` | A drifting ion; the ridge slopes across the scalogram |
@@ -99,16 +133,39 @@ Absolute magnitudes therefore differ between the two backends; peak positions do
 
 ## Resolution, and what to expect
 
-Voices per octave set the frequency resolution. At 48 voices/octave adjacent scales differ
-by about 1.5%, while adjacent isotope peaks of a 2+ peptide near m/z 1000 differ by about
-0.02% — **isotope peaks are not resolved at typical voice densities**. Resolving them
-needs both a much finer scale grid and a transient long enough to support it. The peak
-finder interpolates parabolically, so a single ridge is still located to tens of ppm.
+**`c0` is the knob that decides what can be told apart.** A Morlet wavelet's frequency
+response is a Gaussian of width 1 around `c0`, so its fractional resolution is
 
-Note also that the time-averaged peak of a *drifting* component sits at its mean
-frequency, not its starting frequency, so the `frequency-drift` preset reports a large
-apparent m/z error by design. The ridge itself is what carries the information there;
-`RidgeExtraction.RidgePerTimePoint` follows it.
+```
+df/f = 2*sqrt(2*ln2) / c0
+```
+
+(`CwtScales.RelativeFrequencyResolution`, with `C0ForRelativeResolution` as its inverse).
+Components closer together than that merge into one ridge no matter how many voices you
+use — voices only sample the scale axis, they do not sharpen the wavelet. Concretely:
+
+| `c0` | Resolves components apart by | Good for |
+|---|---|---|
+| 6 | ~39% | A single isolated peak |
+| 40 | ~5.9% | Widely spaced charge states |
+| 80 | ~2.9% | Adjacent charge states of a 17 kDa protein (~3% apart) |
+
+Raising `c0` buys frequency resolution by spending time resolution — the wavelet spans
+more cycles — which is exactly the trade a CWT exists to let you make. Each preset
+declares a `SuggestedC0`; the CLI and the app use it unless you override `--c0`.
+
+Two consequences worth knowing before reading a scalogram:
+
+- **Isotope peaks are not resolved.** Adjacent isotopes of a 2+ peptide near m/z 1000
+  differ by ~0.02% in frequency, which would need `c0` above 10 000 and a transient long
+  enough to support it. They broaden a ridge; they do not split it.
+- **The time-averaged peak of a drifting component sits at its mean frequency**, not its
+  starting frequency, so the `frequency-drift` preset reports a large apparent m/z error
+  by design. The ridge itself carries the information there;
+  `RidgeExtraction.RidgePerTimePoint` follows it.
+
+The peak finder interpolates parabolically, so a single well-separated ridge is still
+located to tens of ppm.
 
 ## Visualization
 
