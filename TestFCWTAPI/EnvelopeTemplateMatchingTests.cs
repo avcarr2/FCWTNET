@@ -86,6 +86,34 @@ namespace TestFCWTAPI
                 $"scored {best.Similarity:F3} similarity at {best.Coverage:F2} coverage");
         }
 
+        /// <summary>
+        /// The case that showed counting states was the wrong way to measure coverage. A
+        /// real denatured envelope loses its weakest charge states to the detection
+        /// threshold, and the native model -- which predicts only the strong ones that
+        /// survived -- then claims perfect coverage and wins. Weighting by abundance says
+        /// what is actually true: the states that went missing were a sixth of the envelope.
+        /// </summary>
+        [Test]
+        public void ADenaturedEnvelopeMissingItsWeakStatesIsStillDenatured()
+        {
+            IReadOnlyList<ChargeStateAbundance> envelope = ChargeStateEnvelope.Generate(
+                MyoglobinMass, new ChargeStateEnvelopeOptions { Mode = IonizationMode.Denatured });
+
+            // 8+ to 20+, which is what a scalogram of the myoglobin-denatured preset
+            // actually resolves; the 21+ to 26+ tail crowds together at low m/z and is lost.
+            List<ChargeStateAbundance> seen = envelope.Where(s => s.Charge <= 20).ToList();
+            Assert.Less(seen.Count, envelope.Count, "the test must actually lose some states");
+
+            EnvelopeMatch? best = EnvelopeTemplateMatching.BestMatch(
+                seen.Select(s => s.Mz).ToList(), seen.Select(s => s.Abundance).ToList(), MyoglobinMass);
+
+            Assert.IsNotNull(best);
+            TestContext.WriteLine(best!.ToString());
+            Assert.AreEqual(IonizationMode.Denatured, best.Mode);
+            Assert.AreEqual(0.83, best.Coverage, 0.03,
+                "the missing tail should cost exactly what it was worth");
+        }
+
         [Test]
         public void ReportsTheModelCentroidCharge()
         {

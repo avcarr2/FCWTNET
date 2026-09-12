@@ -83,7 +83,11 @@ Analysis options:
   --scale NAME        linear | log | sqrt              (default linear)
   --max-samples N     Truncate long transients         (default 65536)
   --backend NAME      auto | managed | native          (default auto)
-  --peaks N           Peaks to report                  (default 10)");
+  --peaks N           Peaks to report                  (default 10)
+  --min-mz F          Lowest m/z to transform          (bounds the scale grid)
+  --max-mz F          Highest m/z to transform         (bounds the scale grid)
+  --deconvolve        Group peaks into species and assign charge states
+  --beats             Read each species' charge off its isotope beat");
         }
 
         private static int ListPresets()
@@ -227,8 +231,29 @@ Analysis options:
                 _ => CwtBackends.Default
             };
 
-            Console.WriteLine($"  CWT: octaves {startOctave}:{endOctave}, {voices} voices, " +
-                              $"wavelet {wavelet.Name}, {samples.Length} samples");
+            // An explicit m/z range replaces the octave grid: it is the bound a mass
+            // spectrometrist actually knows, and it stops scales being computed over
+            // frequencies no ion of interest can occupy.
+            ScaleGrid? grid = null;
+            if (options.Has("min-mz") || options.Has("max-mz"))
+            {
+                double minMz = options.GetDouble("min-mz", 200);
+                double maxMz = options.GetDouble("max-mz", 4000);
+                grid = ScaleGrid.ForMzRange(minMz, maxMz, calibrationCoefficient, samplingRate,
+                    voices, wavelet, samples.Length);
+                Console.WriteLine($"  CWT: m/z {minMz:F0}-{maxMz:F0}, {grid.Count} scales " +
+                                  $"({grid.Octaves:F2} octaves), {voices} voices, " +
+                                  $"wavelet {wavelet.Name}, {samples.Length} samples");
+                foreach (string clamp in grid.Clamps.Describe())
+                {
+                    Console.WriteLine($"  note: {clamp}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"  CWT: octaves {startOctave}:{endOctave}, {voices} voices, " +
+                                  $"wavelet {wavelet.Name}, {samples.Length} samples");
+            }
             Console.WriteLine($"  resolves components " +
                               $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
 
@@ -236,7 +261,8 @@ Analysis options:
                 samplingRate, calibrationCoefficient, outputDirectory)
             {
                 Backend = backend,
-                Wavelet = wavelet
+                Wavelet = wavelet,
+                ScaleGrid = grid
             };
             cwt.PerformCWT();
             cwt.CalculateFrequencyAxis();
@@ -259,6 +285,149 @@ Analysis options:
             int peakCount = options.GetInt("peaks", 10);
             WritePeakTable(peaks.Take(peakCount).ToList(), groundTruth,
                 Path.Combine(outputDirectory, $"{name}.peaks.csv"));
+
+            // Beats are measured per ridge, before and independently of any grouping: the
+            // whole point of the method is that it needs no assumption about which peaks
+            // belong together, so it still answers when there are too few peaks to form a
+            // comb at all.
+            var beats = new Dictionary<int, IsotopeBeatResult>();
+            if (options.Has("beats"))
+            {
+                MeasureBeats(peaks, modulus, cwt, samplingRate, calibrationCoefficient, beats);
+            }
+
+            if (options.Has("deconvolve"))
+            {
+                Deconvolve(name, peaks, outputDirectory, beats);
+            }
+        }
+
+        /// <summary>
+        /// Reads the charge off each ridge's own amplitude envelope. Unresolved isotopes
+        /// are two frequencies a little apart, so their sum beats at a rate that depends
+        /// only on the charge and on quantities already known.
+        /// </summary>
+        private static void MeasureBeats(IReadOnlyList<DetectedPeak> peaks, double[,] modulus,
+            CWTObject cwt, int samplingRate, double calibrationCoefficient,
+            Dictionary<int, IsotopeBeatResult> beats)
+        {
+            int columns = modulus.GetLength(1);
+            // The wavelet's cone of influence spoils both ends of the envelope; the beat is
+            // measured on the interior only.
+            int margin = columns / 10;
+            int count = columns - 2 * margin;
+            double windowSeconds = (double)count / samplingRate;
+            Console.WriteLine($"  isotope beats over {windowSeconds * 1000:F1} ms of ridge:");
+
+            foreach (DetectedPeak peak in peaks)
+            {
+                if (count < 64)
+                {
+                    break;
+                }
+                var envelope = new double[count];
+                for (int t = 0; t < count; t++)
+                {
+                    envelope[t] = modulus[peak.RowIndex, margin + t];
+                }
+
+                double carrier = cwt.FrequencyAxis!.TrueFrequencies![peak.RowIndex];
+                IsotopeBeatResult? beat = IsotopeBeatAnalysis.Analyse(
+                    envelope, samplingRate, carrier, calibrationCoefficient);
+                if (beat != null)
+                {
+                    beats[peak.RowIndex] = beat;
+                    Console.WriteLine($"    m/z {peak.Position:F3}: {beat}");
+                }
+                else
+                {
+                    // Saying nothing was measurable is more useful than a charge inferred
+                    // from a trend. The beat slows with charge, so the 1+ figure is the
+                    // shortest window any ion at this frequency could have needed.
+                    double needed = IsotopeBeatAnalysis.RequiredTransientSeconds(
+                        carrier, 1, calibrationCoefficient);
+                    Console.WriteLine($"    m/z {peak.Position:F3}: no beat resolved " +
+                                      $"(even a 1+ ion here needs {needed * 1000:F1} ms)");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Turns a flat ridge list into species. A denatured envelope is ten unrelated m/z
+        /// values until this runs and one protein at ten charge states afterwards, which is
+        /// the only form the answer is useful in once more than one species is present.
+        /// </summary>
+        private static void Deconvolve(string name, IReadOnlyList<DetectedPeak> peaks,
+            string outputDirectory, IReadOnlyDictionary<int, IsotopeBeatResult> beats)
+        {
+            var mz = peaks.Select(p => p.Position).ToList();
+            var magnitude = peaks.Select(p => p.Magnitude).ToList();
+            IReadOnlyList<ChargeStateGroup> groups = ChargeStateDeconvolution.Deconvolve(mz, magnitude);
+
+            Console.WriteLine($"  deconvolution: {groups.Count} species from {peaks.Count} peaks");
+            string path = Path.Combine(outputDirectory, $"{name}.groups.csv");
+            using (var writer = new StreamWriter(path))
+            {
+                writer.WriteLine("species,mass,mass_sd_ppm,score,contiguity,method,charge,mz," +
+                                 "magnitude,implied_mass,mass_error_ppm,envelope_mode," +
+                                 "envelope_similarity,beat_hz,beat_charge");
+
+                // Intensities carry information the comb ignores: electrospray produces a
+                // shaped distribution, so the shape corroborates the mass and names the
+                // ionisation regime.
+                int index = 1;
+                foreach ((ChargeStateGroup group, EnvelopeMatch? envelope) in
+                         EnvelopeTemplateMatching.Annotate(groups, mz, magnitude))
+                {
+                    Console.WriteLine($"    {index}. {group}");
+                    if (envelope != null)
+                    {
+                        Console.WriteLine($"       envelope: {envelope}");
+                    }
+
+                    foreach (AssignedPeak peak in group.Peaks.OrderBy(p => p.Charge))
+                    {
+                        // The beat is an independent read of the charge, so where both
+                        // exist a disagreement is worth seeing rather than hiding.
+                        IsotopeBeatResult? beat = BeatFor(peak, peaks, beats);
+                        if (beat != null && beat.Charge != peak.Charge)
+                        {
+                            Console.WriteLine($"       note: comb says z={peak.Charge} at " +
+                                              $"m/z {peak.Mz:F3}, its beat says z={beat.Charge}");
+                        }
+                        writer.WriteLine(string.Join(",", new[]
+                        {
+                            index.ToString(CultureInfo.InvariantCulture),
+                            group.MonoisotopicMass.ToString("F3", CultureInfo.InvariantCulture),
+                            group.MassUncertaintyPpm.ToString("F1", CultureInfo.InvariantCulture),
+                            group.Score.ToString("F4", CultureInfo.InvariantCulture),
+                            group.Contiguity.ToString("F3", CultureInfo.InvariantCulture),
+                            group.Method.ToString(),
+                            peak.Charge.ToString(CultureInfo.InvariantCulture),
+                            peak.Mz.ToString("F5", CultureInfo.InvariantCulture),
+                            peak.Magnitude.ToString("E4", CultureInfo.InvariantCulture),
+                            peak.ImpliedMass.ToString("F3", CultureInfo.InvariantCulture),
+                            peak.MassErrorPpm.ToString("F1", CultureInfo.InvariantCulture),
+                            envelope?.Mode.ToString() ?? "",
+                            envelope?.Similarity.ToString("F4", CultureInfo.InvariantCulture) ?? "",
+                            beat?.BeatFrequencyHz.ToString("F2", CultureInfo.InvariantCulture) ?? "",
+                            beat?.Charge.ToString(CultureInfo.InvariantCulture) ?? ""
+                        }));
+                    }
+                    index++;
+                }
+            }
+            Console.WriteLine($"  wrote {path}");
+        }
+
+        /// <summary>Looks up the beat measured on the ridge an assigned peak came from.</summary>
+        private static IsotopeBeatResult? BeatFor(AssignedPeak peak,
+            IReadOnlyList<DetectedPeak> peaks, IReadOnlyDictionary<int, IsotopeBeatResult> beats)
+        {
+            DetectedPeak? ridge = peaks.FirstOrDefault(p => p.Position == peak.Mz);
+            return ridge != null && beats.TryGetValue(ridge.RowIndex, out IsotopeBeatResult? beat)
+                ? beat
+                : null;
         }
 
         private static void WriteScalogramPng(double[,] modulus, string path, Colormap colormap, IntensityScale scale)

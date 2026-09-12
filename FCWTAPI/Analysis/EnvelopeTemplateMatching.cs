@@ -24,7 +24,18 @@ namespace FCWTNET.Analysis
         /// </summary>
         public double Similarity { get; init; }
 
-        /// <summary>Fraction of the predicted charge states that were actually observed.</summary>
+        /// <summary>
+        /// Fraction of the predicted envelope, by abundance, that was actually observed.
+        ///
+        /// <para>
+        /// Weighted by abundance rather than counting states, because an unobserved state
+        /// the model calls 0.5% of the envelope is not evidence against the model while an
+        /// unobserved base peak is fatal. Counting states instead hands a free win to
+        /// whichever model predicts fewest: a real denatured envelope whose weakest states
+        /// fall under the detection threshold was scored as native, since the native model
+        /// predicts only the handful of states that were seen and claims perfect coverage.
+        /// </para>
+        /// </summary>
         public double Coverage { get; init; }
 
         /// <summary>Combined score: similarity weighted by how much of the envelope was seen.</summary>
@@ -62,6 +73,21 @@ namespace FCWTNET.Analysis
     public static class EnvelopeTemplateMatching
     {
         /// <summary>
+        /// How far an observed peak may sit from a predicted charge state and still be
+        /// counted, in ppm.
+        ///
+        /// <para>
+        /// Deliberately loose: a ridge position read off a scalogram is good to a few
+        /// thousand ppm here, not the sub-ppm an FFT centroid would give, and a tolerance
+        /// tighter than the measurement drops real charge states and hands the fit to
+        /// whichever envelope model is narrow enough to avoid them. Loose is safe because
+        /// neighbouring charge states are 1/z apart in relative terms -- 1.7% even at 60+,
+        /// which is more than three times this.
+        /// </para>
+        /// </summary>
+        public const double DefaultMzTolerancePpm = 5000;
+
+        /// <summary>
         /// Scores one candidate mass under one ionisation mode against the observed peaks.
         /// </summary>
         /// <param name="mzValues">Observed m/z values.</param>
@@ -74,7 +100,7 @@ namespace FCWTNET.Analysis
         /// <param name="mzTolerancePpm">How close an observed peak must be to a predicted one.</param>
         public static EnvelopeMatch? Match(IReadOnlyList<double> mzValues, IReadOnlyList<double> magnitudes,
             double mass, IonizationMode mode, ChargeStateEnvelopeOptions? options = null,
-            double mzTolerancePpm = 2000)
+            double mzTolerancePpm = DefaultMzTolerancePpm)
         {
             if (mzValues == null)
             {
@@ -101,7 +127,8 @@ namespace FCWTNET.Analysis
             var matched = new List<AssignedPeak>();
             var predictedIntensities = new List<double>();
             var observedIntensities = new List<double>();
-            int observedStates = 0;
+            double observedAbundance = 0;
+            double totalAbundance = predicted.Sum(s => s.Abundance);
 
             foreach (ChargeStateAbundance state in predicted)
             {
@@ -122,7 +149,7 @@ namespace FCWTNET.Analysis
                 if (best >= 0 && bestError <= mzTolerancePpm)
                 {
                     observedIntensities.Add(magnitudes[best]);
-                    observedStates++;
+                    observedAbundance += state.Abundance;
                     double impliedMass = ChargeStateDeconvolution.MassForCharge(mzValues[best], state.Charge);
                     matched.Add(new AssignedPeak
                     {
@@ -152,7 +179,7 @@ namespace FCWTNET.Analysis
                 CentroidCharge = envelopeOptions.CentroidCharge
                                  ?? ChargeStateEnvelope.CentroidCharge(mass, mode),
                 Similarity = CosineSimilarity(predictedIntensities, observedIntensities),
-                Coverage = (double)observedStates / predicted.Count,
+                Coverage = totalAbundance > 0 ? observedAbundance / totalAbundance : 0,
                 Peaks = matched
             };
         }
@@ -162,7 +189,7 @@ namespace FCWTNET.Analysis
         /// The winning mode is informative in itself.
         /// </summary>
         public static EnvelopeMatch? BestMatch(IReadOnlyList<double> mzValues, IReadOnlyList<double> magnitudes,
-            double mass, ChargeStateEnvelopeOptions? options = null, double mzTolerancePpm = 2000)
+            double mass, ChargeStateEnvelopeOptions? options = null, double mzTolerancePpm = DefaultMzTolerancePpm)
         {
             EnvelopeMatch? best = null;
             foreach (IonizationMode mode in Enum.GetValues<IonizationMode>())
@@ -179,17 +206,24 @@ namespace FCWTNET.Analysis
         /// <summary>
         /// Adds envelope-shape evidence to groups already found by
         /// <see cref="ChargeStateDeconvolution"/>, without changing their masses.
+        ///
+        /// <para>
+        /// Each group is matched at least as loosely as its own peaks scattered: a group
+        /// that reported 1500 ppm of spread cannot then be held to a tighter tolerance than
+        /// that without discarding its own members.
+        /// </para>
         /// </summary>
         public static IReadOnlyList<(ChargeStateGroup Group, EnvelopeMatch? Match)> Annotate(
             IReadOnlyList<ChargeStateGroup> groups, IReadOnlyList<double> mzValues,
-            IReadOnlyList<double> magnitudes, double mzTolerancePpm = 2000)
+            IReadOnlyList<double> magnitudes, double mzTolerancePpm = DefaultMzTolerancePpm)
         {
             if (groups == null)
             {
                 throw new ArgumentNullException(nameof(groups));
             }
             return groups
-                .Select(g => (g, BestMatch(mzValues, magnitudes, g.MonoisotopicMass, null, mzTolerancePpm)))
+                .Select(g => (g, BestMatch(mzValues, magnitudes, g.MonoisotopicMass, null,
+                    Math.Max(mzTolerancePpm, 3 * g.MassUncertaintyPpm))))
                 .ToList();
         }
 

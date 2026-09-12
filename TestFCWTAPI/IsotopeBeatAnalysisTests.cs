@@ -229,6 +229,67 @@ namespace TestFCWTAPI
         }
 
         /// <summary>
+        /// The bundled scenario, end to end: two peptides at different charges, one CWT
+        /// blunt enough that neither one's isotopes are resolved, and both charges read off
+        /// the ridge envelopes without ever grouping the peaks.
+        /// </summary>
+        [Test]
+        public void RecoversBothChargesFromTheIsotopeBeatPreset()
+        {
+            SimulationPreset preset = Presets.Get("isotope-beat");
+            SimulationResult simulated = preset.Run();
+
+            var wavelet = new MorletWavelet(preset.SuggestedC0);
+            var grid = ScaleGrid.ForMzRange(400, 900, simulated.CalibrationCoefficient,
+                simulated.SamplingRate, 48, wavelet, simulated.Samples.Length);
+
+            var cwt = new CWTObject(simulated.Samples, 0, 1, 48, preset.SuggestedC0, 0, false,
+                simulated.SamplingRate, simulated.CalibrationCoefficient)
+            {
+                ScaleGrid = grid,
+                Wavelet = wavelet
+            };
+            cwt.PerformCWT();
+            cwt.CalculateFrequencyAxis();
+            cwt.FrequencyAxis!.CalculateTrueFrequencies();
+            cwt.FrequencyAxis.CalculateMZValues();
+
+            double[,] modulus = cwt.OutputCWT!.ModulusCalculation();
+            IReadOnlyList<DetectedPeak> peaks = RidgeExtraction.FindPeaks(
+                modulus, cwt.FrequencyAxis.MZValues!, relativeThreshold: 0.1);
+
+            Assert.AreEqual(2, peaks.Count, "expected one ridge per species");
+
+            int columns = modulus.GetLength(1);
+            int margin = columns / 10;
+            int count = columns - 2 * margin;
+
+            var byCharge = new Dictionary<int, IsotopeBeatResult>();
+            foreach (DetectedPeak peak in peaks)
+            {
+                var envelope = new double[count];
+                for (int t = 0; t < count; t++)
+                {
+                    envelope[t] = modulus[peak.RowIndex, margin + t];
+                }
+
+                IsotopeBeatResult? beat = IsotopeBeatAnalysis.Analyse(envelope,
+                    simulated.SamplingRate, cwt.FrequencyAxis.TrueFrequencies![peak.RowIndex],
+                    simulated.CalibrationCoefficient);
+                Assert.IsNotNull(beat, $"no beat on the ridge at m/z {peak.Position:F3}");
+                TestContext.WriteLine($"m/z {peak.Position:F3}: {beat}");
+                byCharge[beat!.Charge] = beat;
+            }
+
+            CollectionAssert.AreEquivalent(new[] { 2, 3 }, byCharge.Keys,
+                "both charges should come straight off the envelopes");
+            // The higher charge beats more slowly, which is the whole basis of the method.
+            Assert.Greater(byCharge[2].BeatFrequencyHz, byCharge[3].BeatFrequencyHz);
+            Assert.Greater(byCharge[2].ObservedBeats, 20);
+            Assert.Greater(byCharge[3].ObservedBeats, 8);
+        }
+
+        /// <summary>
         /// Charge from the beat needs no assumption about which peaks belong together, so it
         /// settles the case the comb and voting methods cannot: a peak list holding only
         /// every third charge state, which is equally consistent with a third of the mass.

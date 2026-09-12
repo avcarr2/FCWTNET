@@ -122,6 +122,7 @@ namespace FCWTNET.Simulation
                 MyoglobinDenatured(),
                 MyoglobinNative(),
                 Mixture(),
+                IsotopeBeat(),
                 FastDecay(),
                 FrequencyDrift(),
                 LowSignalToNoise()
@@ -177,6 +178,76 @@ namespace FCWTNET.Simulation
                         IsotopePeaks = IsotopeEnvelope.SuggestedPeakCount(PeptideMass)
                     }
                 });
+        }
+
+        /// <summary>
+        /// Two peptides whose isotopes beat fast enough to watch.
+        ///
+        /// <para>
+        /// Unresolved isotopes of one ion do not simply blur together: they are two
+        /// frequencies a little apart, so their sum beats, and the beat rate
+        /// <c>spacing * f / (2 * (m/z) * z)</c> depends on the charge. That makes charge
+        /// readable from the time axis alone, which is the one grouping signal that needs
+        /// no assumption about which peaks belong together.
+        /// </para>
+        ///
+        /// <para>
+        /// What it takes to see one is the point of the preset. The beat is only worth
+        /// measuring when many cycles fit in the window, and the cycles available for a
+        /// given number of samples work out at <c>spacing * N / (4 * z * (m/z))</c> at the
+        /// Nyquist limit -- so low m/z and low charge are what make it cheap, and a long
+        /// transient is what makes it possible at all. These two peptides beat at 326 Hz
+        /// (2+ at m/z 500) and 131 Hz (3+ at m/z 700), giving 26 and 10 cycles across the
+        /// interior of a 100 ms acquisition. Real proteins sit near m/z 1000 at charge 17+
+        /// and beat at around 14 Hz, needing a comparable window for only a couple of
+        /// cycles; that is the physics, not a limit of the method, and
+        /// <see cref="Analysis.IsotopeBeatAnalysis.RequiredTransientSeconds"/> says so
+        /// before you acquire rather than after.
+        /// </para>
+        ///
+        /// <para>
+        /// 100 ms at 2 MHz is 200k samples, more than the CLI's default truncation, so
+        /// analysing this one wants <c>--max-samples 200000</c>. The scale grid is small
+        /// enough that this stays cheap.
+        /// </para>
+        /// </summary>
+        public static SimulationPreset IsotopeBeat()
+        {
+            OrbitrapSimulatorConfig config = BaseConfig(durationSeconds: 0.100);
+            config.SamplingRate = 2_000_000;
+
+            return new SimulationPreset(
+                "isotope-beat",
+                "Two peptides (2+ at m/z 500, 3+ at m/z 700) over 100 ms: long enough for " +
+                "their unresolved isotopes to beat 26 and 10 times, so charge can be read " +
+                "off each ridge's envelope without grouping the peaks first.",
+                config,
+                new[]
+                {
+                    new IonSpecies
+                    {
+                        // m/z 500.0 at 2+.
+                        MonoisotopicMass = 997.985,
+                        Charge = 2,
+                        Abundance = 1.0,
+                        // A+1 is 56% of A at this mass, so the beat is deep.
+                        IsotopePeaks = 3,
+                        InitialPhase = 0
+                    },
+                    new IonSpecies
+                    {
+                        // m/z 700.0 at 3+.
+                        MonoisotopicMass = 2096.978,
+                        Charge = 3,
+                        Abundance = 0.8,
+                        IsotopePeaks = 4,
+                        InitialPhase = 0
+                    }
+                },
+                // The two ridges are 18% apart in frequency, so c0 must resolve better than
+                // that; the isotopes are 0.05% apart, so it must not come close to resolving
+                // them. c0 = 20 sits at 11.8%, comfortably between.
+                suggestedC0: 20f);
         }
 
         /// <summary>Myoglobin at 13+, matching the bundled sample transient's setup.</summary>
