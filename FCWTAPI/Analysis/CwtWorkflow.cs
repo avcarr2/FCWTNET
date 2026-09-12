@@ -134,7 +134,10 @@ namespace FCWTNET.Analysis
             IReadOnlyList<DetectedPeak> peaks = RidgeExtraction.FindPeaks(
                 modulus, cwt.FrequencyAxis.MZValues!,
                 relativeThreshold: settings.PeakRelativeThreshold,
-                minimumRowSeparation: settings.EffectivePeakSeparation());
+                minimumRowSeparation: settings.EffectivePeakSeparation(),
+                // The grid is what lets the sub-row position be fitted against the
+                // wavelet's own response rather than a parabola.
+                scaleGrid: cwt.EffectiveScaleGrid);
 
             return new Result
             {

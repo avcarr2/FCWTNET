@@ -280,7 +280,8 @@ Analysis options:
                 modulus, cwt.FrequencyAxis.MZValues!,
                 relativeThreshold: 0.1,
                 minimumRowSeparation: new CwtSettings { Voices = voices, Wavelet = wavelet }
-                    .EffectivePeakSeparation());
+                    .EffectivePeakSeparation(),
+                scaleGrid: cwt.EffectiveScaleGrid);
 
             int peakCount = options.GetInt("peaks", 10);
             WritePeakTable(peaks.Take(peakCount).ToList(), groundTruth,

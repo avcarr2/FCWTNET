@@ -203,8 +203,77 @@ Two consequences worth knowing before reading a scalogram:
   by design. The ridge itself carries the information there;
   `RidgeExtraction.RidgePerTimePoint` follows it.
 
-The peak finder interpolates parabolically, so a single well-separated ridge is still
-located to tens of ppm.
+## Mass accuracy
+
+An isolated ion comes out **exact** — 0.00 ppm on a synthetic tone at every `c0` and every
+voice count tried. Three things stood between the transform and that number, and they are
+worth knowing in order, because the third is the one that is left.
+
+### Fit the wavelet, not a parabola
+
+Interpolating a peak with a three-point parabola on raw magnitude against row index is the
+wrong model twice over. For a Morlet with this repo's amplitude normalisation the response
+is `exp(-(a*w - c0)^2/2)`, so it is the *log* magnitude that is quadratic, and the
+quadratic is in the scale `a` rather than in the log-spaced row index. The two errors do
+not cancel; what is left is a bias proportional to the row spacing:
+
+| voices/octave | parabola | fitted to the wavelet |
+|---|---|---|
+| 16 | −1477 ppm | **0.00 ppm** |
+| 48 | −144 ppm | 0.00 ppm |
+| 128 | −74.6 ppm | 0.00 ppm |
+| 256 | −69.8 ppm | 0.00 ppm |
+
+`RidgeExtraction.RefineAgainstWavelet` asks the wavelet for its own `Response` and fits it,
+so this holds for every wavelet in the catalogue rather than the Morlet alone — Paul, bump,
+log-Gabor and DoG all come out exact too. Pass `scaleGrid:` to `FindPeaks` to get it; the
+CLI, `CwtWorkflow` and the app all do. Note that the fitted result is *converged at 16
+voices*: it reaches there what the parabola needs 256 voices to reach, so it is 16x cheaper
+as well as more accurate.
+
+The fit's residual is reported as `DetectedPeak.FitResidual` — see below.
+
+### Do not average across the truncated ends
+
+A tone sitting exactly on an FFT bin has no leakage and is measured exactly. One halfway
+between bins is not, and because the leakage is scale-dependent, averaging the modulus over
+the whole window shifts the ridge: −30 ppm at `c0` 6, +16 ppm at `c0` 80. Discarding 1% of
+the time axis at each end takes it to zero. That 1% is `TimeAveragedMagnitude`'s default.
+
+### What is left: the isotope centroid, and overlap
+
+With both fixed, an isolated ion is exact and two real effects remain.
+
+**The ridge sits on the isotope cluster's centroid, not its monoisotopic peak.** Averagine
+predicts the gap, and it is very nearly constant because both it and the mass scale with
+`0.000594*M`:
+
+| protein | cluster | centroid offset | on the recovered mass |
+|---|---|---|---|
+| 2093 Da, 2+ | 7 peaks | +1.21 Da | +580 ppm |
+| 8560 Da, 8+ | 16 peaks | +5.06 Da | +592 ppm |
+| 16940 Da, 17+ | 24 peaks | +10.05 Da | +593 ppm |
+
+This is a systematic, so averaging over charge states reduces the scatter as √N and never
+touches it. `ChargeStateDeconvolution` reports a monoisotopic mass and therefore inherits
+it: native myoglobin comes back as 16950.1 Da against a true cluster centroid of 16950.05,
+which is **+3 ppm as a centroid mass and +597 ppm as a monoisotopic one**. Both numbers are
+correct answers to different questions; the code currently answers the second while
+measuring the first.
+
+**Ridges closer together than the wavelet resolves blend**, and the local maximum of a
+blend belongs to no single ion. Nothing recovers what is not there, but the fit says so:
+`FitResidual` was 3e-13 for an isolated tone and 1.2e-2 for two tones 4% apart under a
+wavelet resolving 12%. Read it across the ridges of one transform rather than against a
+fixed number — an isotope cluster is not a pure tone either, so a narrower wavelet raises
+every residual. The remedy is `c0`. On denatured myoglobin, where charge states sit 3%
+apart:
+
+| `c0` | resolves | mass scatter | states found |
+|---|---|---|---|
+| 80 | 2.9% | ±1082 ppm | 10 |
+| 120 | 2.0% | ±302 ppm | 11 |
+| 160 | 1.5% | ±163 ppm | 10 |
 
 ## Bounding the transform by m/z
 
@@ -368,6 +437,15 @@ scaling; `PlottingUtils` exports OxyPlot models to PDF or PNG.
   transient across many voices needs several GB. Keep an eye on `MaxSamples`.
 - The `MinMaxIdentificationTest` fixture is `[Explicit]`: it is exploratory, slow, and
   operates on large real transients.
+- `ChargeStateDeconvolution` reports its mass as monoisotopic while the ridges it is built
+  from measure the isotope cluster's centroid, which is the +593 ppm above. Correcting it
+  needs a decision about which mass to report, not more numerics.
+- The native/denatured call in `EnvelopeTemplateMatching` is marginal on a real scalogram —
+  the two modes score within about 5% of each other on denatured myoglobin, and which one
+  wins flips with the loss of a single charge state. The mode is reported; it should not
+  yet be relied on.
+- Overlapping ridges are read as local maxima of a blend. Fitting a *sum* of wavelet
+  responses would be the principled fix and is what would let `c0` come back down.
 
 ## Licence
 
