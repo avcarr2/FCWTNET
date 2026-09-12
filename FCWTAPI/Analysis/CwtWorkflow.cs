@@ -34,6 +34,34 @@ namespace FCWTNET.Analysis
         public double PeakRelativeThreshold { get; set; } = 0.05;
 
         /// <summary>
+        /// Lowest m/z to transform. Setting either bound builds a <see cref="ScaleGrid"/>
+        /// over exactly that range instead of using the octave numbers, which is both the
+        /// bound a mass spectrometrist actually knows and far fewer scales.
+        /// </summary>
+        public double? MinMz { get; set; }
+
+        /// <summary>Highest m/z to transform; see <see cref="MinMz"/>.</summary>
+        public double? MaxMz { get; set; }
+
+        /// <summary>
+        /// Fit a sum of wavelet responses rather than reading local maxima. Components
+        /// closer together than the wavelet resolves merge into one maximum belonging to
+        /// neither; fitting the sum separates them.
+        /// </summary>
+        public bool RefinePeaks { get; set; }
+
+        /// <summary>
+        /// With <see cref="RefinePeaks"/>, also split blends into components that produced
+        /// no maximum of their own. This is a model-selection decision made from one
+        /// profile, so it can be talked into an ion that is not there -- see
+        /// <see cref="MultiComponentFit.FitWithSplitting"/>.
+        /// </summary>
+        public bool DiscoverComponents { get; set; }
+
+        /// <summary>Group the detected peaks into species and assign charge states.</summary>
+        public bool Deconvolve { get; set; }
+
+        /// <summary>
         /// Minimum separation between reported ridges, in rows. Null derives one from
         /// <see cref="Voices"/> and <see cref="C0"/>: a component occupies roughly
         /// c0-dependent bandwidth, so suppressing anything closer than half the wavelet's
@@ -57,6 +85,15 @@ namespace FCWTNET.Analysis
         }
     }
 
+    /// <summary>One deconvolved species, with whatever corroboration was available.</summary>
+    public class SpeciesResult
+    {
+        public required ChargeStateGroup Group { get; init; }
+
+        /// <summary>Envelope-shape match, which also names the better-fitting ionisation mode.</summary>
+        public EnvelopeMatch? Envelope { get; init; }
+    }
+
     /// <summary>
     /// Ties simulation, transform, rendering and peak detection into one step.
     ///
@@ -74,6 +111,15 @@ namespace FCWTNET.Analysis
             public required double[,] Modulus { get; init; }
             public required IReadOnlyList<DetectedPeak> Peaks { get; init; }
             public IReadOnlyList<IsotopologueTruth>? GroundTruth { get; init; }
+
+            /// <summary>Species found, when <see cref="CwtSettings.Deconvolve"/> was set.</summary>
+            public IReadOnlyList<SpeciesResult> Species { get; init; } = Array.Empty<SpeciesResult>();
+
+            /// <summary>The scale grid the transform actually ran on.</summary>
+            public ScaleGrid ScaleGrid => Cwt.EffectiveScaleGrid;
+
+            /// <summary>True when the peaks came from a multi-component fit.</summary>
+            public bool PeaksWereRefined { get; init; }
 
             /// <summary>Duration of the analysed window, in seconds.</summary>
             public double WindowSeconds { get; init; }
@@ -118,11 +164,23 @@ namespace FCWTNET.Analysis
                 ? samples.Take(settings.MaxSamples).ToArray()
                 : samples;
 
+            // An m/z range replaces the octave numbers when given: it bounds the transform
+            // by the quantity the instrument is actually set up around, and costs far fewer
+            // scales than an octave range wide enough to be safe.
+            ScaleGrid? grid = null;
+            if (settings.MinMz.HasValue || settings.MaxMz.HasValue)
+            {
+                grid = ScaleGrid.ForMzRange(settings.MinMz ?? 200, settings.MaxMz ?? 4000,
+                    calibrationCoefficient, samplingRate, settings.Voices,
+                    settings.EffectiveWavelet, window.Length);
+            }
+
             var cwt = new CWTObject(window, settings.StartOctave, settings.EndOctave, settings.Voices,
                 settings.C0, 0, false, samplingRate, calibrationCoefficient)
             {
                 Backend = settings.Backend ?? CwtBackends.Default,
-                Wavelet = settings.Wavelet
+                Wavelet = settings.Wavelet,
+                ScaleGrid = grid
             };
             cwt.PerformCWT();
             cwt.CalculateFrequencyAxis();
@@ -139,6 +197,23 @@ namespace FCWTNET.Analysis
                 // wavelet's own response rather than a parabola.
                 scaleGrid: cwt.EffectiveScaleGrid);
 
+            if (settings.RefinePeaks && peaks.Count > 0)
+            {
+                peaks = MultiComponentFit.RefinePeaks(peaks, modulus, cwt.EffectiveScaleGrid,
+                    cwt.FrequencyAxis.MZValues!, discoverComponents: settings.DiscoverComponents);
+            }
+
+            IReadOnlyList<SpeciesResult> species = Array.Empty<SpeciesResult>();
+            if (settings.Deconvolve && peaks.Count > 0)
+            {
+                var mz = peaks.Select(p => p.Position).ToList();
+                var magnitude = peaks.Select(p => p.Magnitude).ToList();
+                species = EnvelopeTemplateMatching
+                    .Annotate(ChargeStateDeconvolution.Deconvolve(mz, magnitude), mz, magnitude)
+                    .Select(pair => new SpeciesResult { Group = pair.Group, Envelope = pair.Match })
+                    .ToList();
+            }
+
             return new Result
             {
                 Samples = window,
@@ -146,6 +221,8 @@ namespace FCWTNET.Analysis
                 Modulus = modulus,
                 Peaks = peaks,
                 GroundTruth = groundTruth,
+                Species = species,
+                PeaksWereRefined = settings.RefinePeaks,
                 WindowSeconds = (double)window.Length / samplingRate
             };
         }

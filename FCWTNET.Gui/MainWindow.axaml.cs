@@ -243,6 +243,30 @@ namespace FCWTNET.Gui
             Render(_lastResult);
         }
 
+        private void OnMzRangeToggled(object? sender, RoutedEventArgs e)
+        {
+            if (!_initialised)
+            {
+                return;
+            }
+            MzRangePanel.IsVisible = MzRangeBox.IsChecked == true;
+        }
+
+        private void OnRefineToggled(object? sender, RoutedEventArgs e)
+        {
+            if (!_initialised)
+            {
+                return;
+            }
+            // Discovery is a refinement of the fit, so it cannot be asked for on its own.
+            bool refining = RefineBox.IsChecked == true;
+            DiscoverBox.IsEnabled = refining;
+            if (!refining)
+            {
+                DiscoverBox.IsChecked = false;
+            }
+        }
+
         private async void OnRun(object? sender, RoutedEventArgs e)
         {
             if (PresetBox.SelectedItem is not string presetName)
@@ -335,8 +359,17 @@ namespace FCWTNET.Gui
                 Voices = (int)(VoicesBox.Value ?? 48),
                 C0 = (float)(double)(C0Box.Value ?? 6),
                 MaxSamples = (int)(MaxSamplesBox.Value ?? 65536),
-                Wavelet = wavelet
+                Wavelet = wavelet,
+                RefinePeaks = RefineBox.IsChecked == true,
+                DiscoverComponents = DiscoverBox.IsChecked == true,
+                Deconvolve = DeconvolveBox.IsChecked == true
             };
+
+            if (MzRangeBox.IsChecked == true)
+            {
+                settings.MinMz = (double)(MinMzBox.Value ?? 600);
+                settings.MaxMz = (double)(MaxMzBox.Value ?? 2300);
+            }
 
             // Bracket the octaves around where the ions actually are. Running a throwaway
             // simulation would be wasteful, so derive the frequencies directly.
@@ -378,6 +411,8 @@ namespace FCWTNET.Gui
                 TransientWidth, TransientHeight);
 
             PeakText.Text = FormatPeaks(result);
+            PeakHeading.Text = result.PeaksWereRefined ? "Fitted components" : "Detected peaks";
+            SpeciesText.Text = FormatSpecies(result);
             DrawTruthOverlay(result);
         }
 
@@ -443,8 +478,21 @@ namespace FCWTNET.Gui
         private string FormatPeaks(CwtWorkflow.Result result)
         {
             bool useMz = (string?)AxisBox.SelectedItem != "Frequency (Hz)";
+            // Which species claimed each peak, so the table reads as an assignment rather
+            // than a list of unrelated numbers.
+            var assignment = new Dictionary<double, (int Species, int Charge)>();
+            for (int i = 0; i < result.Species.Count; i++)
+            {
+                foreach (AssignedPeak assigned in result.Species[i].Group.Peaks)
+                {
+                    assignment[assigned.Mz] = (i + 1, assigned.Charge);
+                }
+            }
+
             var builder = new StringBuilder();
-            builder.AppendLine(useMz ? "  #      m/z    magnitude     ppm" : "  #   freq (Hz)  magnitude");
+            builder.AppendLine(useMz
+                ? "  #      m/z    magnitude     ppm   z  resid"
+                : "  #   freq (Hz)  magnitude          z  resid");
 
             int rank = 1;
             foreach (DetectedPeak peak in result.Peaks.Take(15))
@@ -453,7 +501,7 @@ namespace FCWTNET.Gui
                 if (!useMz)
                 {
                     // Peaks were found against the m/z axis; convert back for display.
-                    value = result.FrequencyAxis[peak.RowIndex];
+                    value = result.FrequencyAxis[Math.Clamp(peak.RowIndex, 0, result.FrequencyAxis.Length - 1)];
                 }
 
                 string ppm = string.Empty;
@@ -464,8 +512,18 @@ namespace FCWTNET.Gui
                     ppm = ((peak.Position - nearest.Mz) / nearest.Mz * 1e6).ToString("F0", CultureInfo.InvariantCulture);
                 }
 
+                string charge = assignment.TryGetValue(peak.Position, out (int Species, int Charge) found)
+                    ? $"{found.Charge}+"
+                    : "-";
+                // How well one wavelet response explained this ridge. A value far above its
+                // neighbours' is a blend, and its position is the one to distrust.
+                string residual = double.IsNaN(peak.FitResidual)
+                    ? "-"
+                    : peak.FitResidual.ToString("0.0E+0", CultureInfo.InvariantCulture);
+
                 builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
-                    "{0,3}  {1,10:F4}  {2,10:E2}  {3,6}", rank, value, peak.Magnitude, ppm));
+                    "{0,3}  {1,10:F4}  {2,10:E2}  {3,6} {4,4} {5,6}",
+                    rank, value, peak.Magnitude, ppm, charge, residual));
                 rank++;
             }
 
@@ -476,19 +534,75 @@ namespace FCWTNET.Gui
             return builder.ToString();
         }
 
+        /// <summary>
+        /// The deconvolved species. A charge envelope is a dozen unrelated m/z values until
+        /// this runs and one protein afterwards, which is the only form the answer is
+        /// useful in once more than one species is present.
+        /// </summary>
+        private static string FormatSpecies(CwtWorkflow.Result result)
+        {
+            if (result.Species.Count == 0)
+            {
+                return "Enable \"Group charge states into species\" to deconvolve.";
+            }
+
+            var builder = new StringBuilder();
+            int index = 1;
+            foreach (SpeciesResult species in result.Species)
+            {
+                ChargeStateGroup group = species.Group;
+                builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "{0}. {1:F2} Da  +/-{2:F0} ppm", index, group.MonoisotopicMass,
+                    group.MassUncertaintyPpm));
+                builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "   {0} states {1}+ to {2}+, score {3:F3}",
+                    group.Peaks.Count, group.MinCharge, group.MaxCharge, group.Score));
+                builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "   contiguity {0:F2} ({1})", group.Contiguity, group.Method));
+                if (species.Envelope != null)
+                {
+                    builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                        "   envelope {0}, fit {1:F2}",
+                        species.Envelope.Mode, species.Envelope.Similarity));
+                }
+                builder.AppendLine();
+                index++;
+            }
+            return builder.ToString();
+        }
+
         private static string Describe(CwtWorkflow.Result result, CwtSettings settings)
         {
             var builder = new StringBuilder();
             builder.AppendLine($"{result.Samples.Length} samples, {result.WindowSeconds * 1000:F2} ms");
-            builder.AppendLine($"octaves {settings.StartOctave}:{settings.EndOctave}, " +
-                               $"{settings.Voices} voices, {result.Modulus.GetLength(0)} rows");
+            if (settings.MinMz.HasValue || settings.MaxMz.HasValue)
+            {
+                builder.AppendLine($"m/z {settings.MinMz ?? 200:F0}-{settings.MaxMz ?? 4000:F0}, " +
+                                   $"{result.ScaleGrid.Count} scales over " +
+                                   $"{result.ScaleGrid.Octaves:F2} octaves, {settings.Voices} voices");
+            }
+            else
+            {
+                builder.AppendLine($"octaves {settings.StartOctave}:{settings.EndOctave}, " +
+                                   $"{settings.Voices} voices, {result.Modulus.GetLength(0)} rows");
+            }
+            // Nyquist and signal-length clamps are reported rather than applied silently.
+            foreach (string clamp in result.ScaleGrid.Clamps.Describe())
+            {
+                builder.AppendLine(clamp);
+            }
             // The wavelet's own bandwidth decides what can be told apart at all, so it is
             // worth seeing next to the result.
             IWavelet wavelet = settings.EffectiveWavelet;
             builder.AppendLine($"{wavelet.Name}: resolves components " +
                                $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
             builder.AppendLine($"backend {(settings.Backend ?? Transform.CwtBackends.Default).Name}");
-            builder.Append($"{result.Peaks.Count} ridge(s) detected");
+            builder.AppendLine(result.PeaksWereRefined
+                ? $"{result.Peaks.Count} component(s) fitted"
+                : $"{result.Peaks.Count} ridge(s) detected");
+            builder.Append(result.Species.Count > 0
+                ? $"{result.Species.Count} species deconvolved"
+                : "not deconvolved");
             return builder.ToString();
         }
 

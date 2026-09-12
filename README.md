@@ -262,18 +262,78 @@ correct answers to different questions; the code currently answers the second wh
 measuring the first.
 
 **Ridges closer together than the wavelet resolves blend**, and the local maximum of a
-blend belongs to no single ion. Nothing recovers what is not there, but the fit says so:
-`FitResidual` was 3e-13 for an isolated tone and 1.2e-2 for two tones 4% apart under a
-wavelet resolving 12%. Read it across the ridges of one transform rather than against a
-fixed number — an isotope cluster is not a pure tone either, so a narrower wavelet raises
-every residual. The remedy is `c0`. On denatured myoglobin, where charge states sit 3%
-apart:
+blend belongs to no single ion. `FitResidual` says when that has happened: 3e-13 for an
+isolated tone and 1.2e-2 for two tones 4% apart under a wavelet resolving 12%. Read it
+across the ridges of one transform rather than against a fixed number — an isotope cluster
+is not a pure tone either, so a narrower wavelet raises every residual.
 
-| `c0` | resolves | mass scatter | states found |
+Raising `c0` is one answer; `MultiComponentFit` is the better one.
+
+### Fitting overlapping ridges
+
+A blend is still exactly the superposition of two known shapes, so it can be fitted even
+where it cannot be resolved. `MultiComponentFit` does that, and it is the reason `c0` does
+not have to keep climbing.
+
+**It fits power, not magnitude.** The CWT is linear, so
+`W(a,t) = Σ A_k exp(i w_k t) psi(a w_k)`. The modulus of that sum depends on the relative
+phases and beats in time, so the time-averaged *modulus* is not the sum of the individual
+moduli and cannot be fitted as one. The time-averaged *squared* modulus can: the cross
+terms oscillate at the difference frequencies and average away, leaving
+`mean|W(a)|² = Σ A_k² psi(a w_k)²` exactly. Charge states differ by a few percent of
+several hundred kHz, so a 16 ms transient covers hundreds of beat periods and the
+cancellation is complete.
+
+Given the frequencies the powers are a linear least-squares problem, so only the
+frequencies are searched — the separable form — by coordinate descent, each component
+confined between the midpoints to its neighbours so they cannot collapse together.
+
+Two synthetic tones, where the local maximum belongs to neither:
+
+| `c0` | resolves | tones apart | local maximum | fitted |
+|---|---|---|---|---|
+| 20 | 11.8% | 6.0% | −12415 ppm | **2 / −3 ppm** |
+| 40 | 5.9% | 3.0% | −12131 ppm | **14 / −23 ppm** |
+| 40 | 5.9% | 1.5% | −8436 ppm | **11 / −17 ppm** |
+
+`FitWithSplitting` goes further and discovers components that produced no maximum at all,
+by repeatedly trying the worst-fitting component as two and keeping the split only when it
+cuts the residual by a factor. Every row above was recovered from a *single* seed that way.
+It is a model-selection decision made from one profile, so it is off by default: on a
+19-component protein envelope it over-fits, because an isotope cluster genuinely is not one
+response. `--refine` on the CLI, `--refine --discover` for the splitting.
+
+On denatured myoglobin, where charge states sit 3% apart:
+
+| `c0` | resolves | maxima only | fitted |
 |---|---|---|---|
-| 80 | 2.9% | ±1082 ppm | 10 |
-| 120 | 2.0% | ±302 ppm | 11 |
-| 160 | 1.5% | ±163 ppm | 10 |
+| 80 | 2.9% | ±1082 ppm | **±140 ppm** |
+| 120 | 2.0% | ±470 ppm | **±98 ppm** |
+| 160 | 1.5% | ±163 ppm | — |
+
+Fitting at `c0` = 80 beats reading maxima at `c0` = 160, which is what "letting `c0` come
+back down" means in practice — and a lower `c0` is a shorter wavelet, so it also costs less
+and keeps more of the transient outside the cone of influence.
+
+## The desktop app
+
+`FCWTNET.Gui` is an Avalonia app over `CwtWorkflow`, so it runs the same code path as the
+CLI and the tests rather than a parallel one. Beyond the simulation and charge-envelope
+controls it exposes:
+
+- **Bound the transform by m/z**, which swaps the octave bracket for a `ScaleGrid` and
+  reports the scale count, the span in octaves, and any Nyquist or signal-length clamp.
+- **Fit overlapping ridges**, and, only while that is on, **discover hidden components**.
+  The peak table's heading changes to "Fitted components" so it is never ambiguous where a
+  position came from.
+- **Group charge states into species**, which fills a Species panel with the mass, its
+  spread in ppm, the charge states, contiguity, and the envelope's ionisation mode.
+- A peak table carrying the assigned charge and `FitResidual` per ridge.
+
+It is tested headlessly — Avalonia's headless platform with Skia — so the window, its
+controls and a full run are exercised in CI where nobody can look at them. Set
+`FCWTNET_GUI_SCREENSHOT` to a path (and `FCWTNET_GUI_FULL=1` for the whole pipeline) to
+capture what it actually looks like.
 
 ## Bounding the transform by m/z
 
@@ -444,8 +504,9 @@ scaling; `PlottingUtils` exports OxyPlot models to PDF or PNG.
   the two modes score within about 5% of each other on denatured myoglobin, and which one
   wins flips with the loss of a single charge state. The mode is reported; it should not
   yet be relied on.
-- Overlapping ridges are read as local maxima of a blend. Fitting a *sum* of wavelet
-  responses would be the principled fix and is what would let `c0` come back down.
+- `FitWithSplitting` over-fits a full protein charge envelope: an isotope cluster is not
+  one wavelet response, so the splitting keeps finding real structure that is not a charge
+  state. It is validated on blends of a few components and is off by default.
 
 ## Licence
 

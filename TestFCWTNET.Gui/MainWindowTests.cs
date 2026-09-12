@@ -140,9 +140,26 @@ namespace TestFCWTNET.Gui
             Find<NumericUpDown>(window, "VoicesBox").Value = 32;
             Find<NumericUpDown>(window, "DurationBox").Value = 4;
 
+            // A screenshot of the default single peak shows none of the analysis panels
+            // doing anything, so let the capture be pointed at the full pipeline.
+            if (Environment.GetEnvironmentVariable("FCWTNET_GUI_FULL") == "1")
+            {
+                Find<ComboBox>(window, "PresetBox").SelectedItem = "myoglobin-denatured";
+                Find<NumericUpDown>(window, "MaxSamplesBox").Value = 32768;
+                Find<NumericUpDown>(window, "VoicesBox").Value = 64;
+                Find<NumericUpDown>(window, "DurationBox").Value = 8;
+                Find<NumericUpDown>(window, "C0Box").Value = 80;
+                Find<NumericUpDown>(window, "IsotopePeaksBox").Value = 8;
+                Find<CheckBox>(window, "MzRangeBox").IsChecked = true;
+                Find<NumericUpDown>(window, "MinMzBox").Value = 600;
+                Find<NumericUpDown>(window, "MaxMzBox").Value = 2300;
+                Find<CheckBox>(window, "RefineBox").IsChecked = true;
+                Find<CheckBox>(window, "DeconvolveBox").IsChecked = true;
+            }
+
             var scalogram = Find<Image>(window, "ScalogramImage");
             RaiseClick(window, "RunButton");
-            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(60));
+            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(180));
 
             // Let layout settle so the captured frame includes the rendered image.
             for (int i = 0; i < 10; i++)
@@ -304,6 +321,120 @@ namespace TestFCWTNET.Gui
             // fault when there is no result yet.
             Assert.DoesNotThrow(() => Find<ComboBox>(window, "ColormapBox").SelectedItem = "magma");
             Assert.DoesNotThrow(() => Find<ComboBox>(window, "ScaleBox").SelectedIndex = 1);
+        }
+
+        /// <summary>
+        /// The analysis toggles are not independent: discovery is a refinement of the fit,
+        /// so it must not be reachable on its own.
+        /// </summary>
+        [AvaloniaTest]
+        public void DiscoveryIsOnlyAvailableWhileFittingIsOn()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            var refine = Find<CheckBox>(window, "RefineBox");
+            var discover = Find<CheckBox>(window, "DiscoverBox");
+
+            Assert.IsFalse(discover.IsEnabled, "discovery should start unavailable");
+
+            refine.IsChecked = true;
+            Assert.IsTrue(discover.IsEnabled);
+
+            discover.IsChecked = true;
+            refine.IsChecked = false;
+            Assert.IsFalse(discover.IsEnabled);
+            Assert.AreNotEqual(true, discover.IsChecked,
+                "turning the fit off must not leave discovery armed");
+        }
+
+        [AvaloniaTest]
+        public void TheMzRangeInputsAppearOnlyWhenAskedFor()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            var toggle = Find<CheckBox>(window, "MzRangeBox");
+            var panel = Find<StackPanel>(window, "MzRangePanel");
+
+            Assert.IsFalse(panel.IsVisible);
+            toggle.IsChecked = true;
+            Assert.IsTrue(panel.IsVisible);
+            toggle.IsChecked = false;
+            Assert.IsFalse(panel.IsVisible);
+        }
+
+        /// <summary>
+        /// The whole new back end through the UI: bound the transform by m/z, fit the
+        /// overlapping ridges, and group the result into species.
+        /// </summary>
+        [AvaloniaTest]
+        public void RunningWithFittingAndDeconvolutionFillsTheSpeciesPanel()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            Find<ComboBox>(window, "PresetBox").SelectedItem = "myoglobin-denatured";
+            Find<NumericUpDown>(window, "MaxSamplesBox").Value = 16384;
+            Find<NumericUpDown>(window, "VoicesBox").Value = 32;
+            Find<NumericUpDown>(window, "DurationBox").Value = 4;
+            Find<NumericUpDown>(window, "C0Box").Value = 80;
+            Find<NumericUpDown>(window, "IsotopePeaksBox").Value = 4;
+
+            Find<CheckBox>(window, "MzRangeBox").IsChecked = true;
+            Find<NumericUpDown>(window, "MinMzBox").Value = 600;
+            Find<NumericUpDown>(window, "MaxMzBox").Value = 2300;
+            Find<CheckBox>(window, "RefineBox").IsChecked = true;
+            Find<CheckBox>(window, "DeconvolveBox").IsChecked = true;
+
+            var scalogram = Find<Image>(window, "ScalogramImage");
+            var species = Find<TextBlock>(window, "SpeciesText");
+            var peaks = Find<TextBlock>(window, "PeakText");
+            var heading = Find<TextBlock>(window, "PeakHeading");
+            var status = Find<TextBlock>(window, "StatusText");
+
+            RaiseClick(window, "RunButton");
+            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(120));
+
+            TestContext.WriteLine(status.Text);
+            TestContext.WriteLine(species.Text);
+
+            // The m/z bound should be reported instead of an octave bracket.
+            StringAssert.Contains("m/z 600-2300", status.Text!);
+            StringAssert.Contains("scales", status.Text!);
+            Assert.AreEqual("Fitted components", heading.Text,
+                "the heading should say where the positions came from");
+            StringAssert.Contains("component(s) fitted", status.Text!);
+
+            // A charge envelope must come back as species, not a list of m/z values.
+            StringAssert.Contains("Da", species.Text!);
+            StringAssert.Contains("states", species.Text!);
+            StringAssert.DoesNotContain("Enable", species.Text!);
+            StringAssert.Contains("species deconvolved", status.Text!);
+
+            // And the peak table should carry the assignment and the fit quality.
+            StringAssert.Contains("resid", peaks.Text!);
+            StringAssert.Contains("+", peaks.Text!);
+        }
+
+        [AvaloniaTest]
+        public void TheSpeciesPanelSaysHowToFillItWhenDeconvolutionIsOff()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            Find<NumericUpDown>(window, "MaxSamplesBox").Value = 4096;
+            Find<NumericUpDown>(window, "VoicesBox").Value = 16;
+            Find<NumericUpDown>(window, "DurationBox").Value = 2;
+
+            var scalogram = Find<Image>(window, "ScalogramImage");
+            var species = Find<TextBlock>(window, "SpeciesText");
+
+            RaiseClick(window, "RunButton");
+            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(60));
+
+            StringAssert.Contains("Enable", species.Text!);
+            StringAssert.Contains("Detected peaks", Find<TextBlock>(window, "PeakHeading").Text!);
         }
 
         private static void RaiseClick(Control root, string name)
