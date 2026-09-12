@@ -46,7 +46,7 @@ namespace FCWTNET.Simulation
         /// <summary>A mid-size peptide, around 2 kDa.</summary>
         private const double PeptideMass = 2093.1;
 
-        private static OrbitrapSimulatorConfig BaseConfig(double durationSeconds = 0.064, int seed = 20240101)
+        private static OrbitrapSimulatorConfig BaseConfig(double durationSeconds = 0.016, int seed = 20240101)
         {
             return new OrbitrapSimulatorConfig
             {
@@ -180,10 +180,10 @@ namespace FCWTNET.Simulation
         public static SimulationPreset FastDecay()
         {
             OrbitrapSimulatorConfig config = BaseConfig();
-            config.DefaultDecayConstant = 0.015;
+            config.DefaultDecayConstant = 0.004;
             return new SimulationPreset(
                 "fast-decay",
-                "Short decay constant (15 ms) against a 64 ms acquisition: the ridge visibly fades.",
+                "Decay constant of 4 ms against a 16 ms acquisition: the ridge fades to 2% by the end.",
                 config,
                 new[]
                 {
@@ -198,15 +198,32 @@ namespace FCWTNET.Simulation
         }
 
         /// <summary>
-        /// Two ions at the same m/z-ish frequency, one drifting and one not: the clearest
-        /// demonstration of what a CWT sees that a whole-transient FFT averages away.
+        /// A single drifting ion: the clearest demonstration of what a CWT sees that an
+        /// FFT over the whole transient averages away.
+        ///
+        /// Uses a slower acquisition (200 kHz over 250 ms) rather than the 4 MHz default.
+        /// Drift only becomes visible once the frequency moves by more than the voice
+        /// spacing, which needs a long observation; at 4 MHz a transient that long is
+        /// millions of samples. Two ions close enough to drift past each other would beat
+        /// rather than resolve, which obscures the very effect being shown.
         /// </summary>
         public static SimulationPreset FrequencyDrift()
         {
+            var config = new OrbitrapSimulatorConfig
+            {
+                // Puts m/z ~1047 near 20 kHz, well inside a 100 kHz Nyquist limit.
+                CalibrationCoefficient = 4.188e11,
+                SamplingRate = 200_000,
+                DurationSeconds = 0.25,
+                Decay = DecayModel.None,
+                SignalToNoise = 200,
+                PinkNoiseFraction = 0.3,
+                Seed = 20240101
+            };
             return new SimulationPreset(
                 "frequency-drift",
-                "One stationary ion and one drifting at 0.2%/s: the drifting ridge slopes across the scalogram.",
-                BaseConfig(),
+                "One ion drifting at 20%/s over 250 ms: the ridge slopes upward across the scalogram.",
+                config,
                 new[]
                 {
                     new IonSpecies
@@ -215,16 +232,8 @@ namespace FCWTNET.Simulation
                         Charge = 2,
                         Abundance = 1.0,
                         IsotopePeaks = 1,
-                        InitialPhase = 0
-                    },
-                    new IonSpecies
-                    {
-                        MonoisotopicMass = PeptideMass + 6,
-                        Charge = 2,
-                        Abundance = 0.8,
-                        IsotopePeaks = 1,
                         InitialPhase = 0,
-                        FrequencyDriftPerSecond = 2e-3
+                        FrequencyDriftPerSecond = 0.2
                     }
                 });
         }

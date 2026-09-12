@@ -95,7 +95,7 @@ namespace FCWTNET
         }
         /// <summary>
         /// Generates an array corresponding to the individual timepoints of the transient operated on by the CWT
-        /// Timepoints are given in milliseconds
+        /// Timepoints are given in seconds (the step is 1/SamplingRate)
         /// </summary>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
@@ -157,9 +157,9 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
             }
-            if (Path.GetExtension(fileName) != ".pdf")
+            if (!PlottingUtils.IsSupportedPlotExtension(fileName))
             {
-                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+                throw new ArgumentException("fileName must have the .pdf or .png extension", nameof(fileName));
             }
             double[] plotFrequencyAxis;
             switch (frequencyAxisUnits)
@@ -244,7 +244,7 @@ namespace FCWTNET
             }
             if (dataName != null)
             {
-                title = dataName + title;
+                title = dataName + " " + title;
             }
             // Reflects data about the xy axis to plot CWT data with Freqeuncy in the y-axis and time in the x-axis
             double[,] xyReflectedData = new double[finalData.GetLength(1), finalData.GetLength(0)];
@@ -257,7 +257,7 @@ namespace FCWTNET
             }            
             PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, finalTimeAxis, plotFrequencyAxis);
             string filePath = Path.Combine(WorkingPath, fileName);
-            PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
+            PlottingUtils.ExportPlot(cwtPlot, filePath);
         }      
 
         /// <summary>
@@ -289,9 +289,9 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
             }
-            if (Path.GetExtension(fileName) != ".pdf")
+            if (!PlottingUtils.IsSupportedPlotExtension(fileName))
             {
-                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+                throw new ArgumentException("fileName must have the .pdf or .png extension", nameof(fileName));
             }
             double[] plotFrequencyAxis;
             switch (frequencyAxisUnits)
@@ -345,7 +345,7 @@ namespace FCWTNET
             }
             if (dataName != null)
             {
-                title = dataName + title;
+                title = dataName + " " + title;
             }
 
             int[] indFrequencies;
@@ -441,7 +441,7 @@ namespace FCWTNET
 
             PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, finalTimeAxis, FrequencyAxis.WaveletCenterFrequencies, PlottingUtils.PlotTitles.Custom, plotMode, title);
             string filePath = Path.Combine(WorkingPath, fileName);
-            PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
+            PlottingUtils.ExportPlot(cwtPlot, filePath);
 
         }
                
