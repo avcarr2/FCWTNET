@@ -267,6 +267,15 @@ namespace FCWTNET.Gui
             }
         }
 
+        private void OnOligomerToggled(object? sender, RoutedEventArgs e)
+        {
+            if (!_initialised)
+            {
+                return;
+            }
+            OligomerPanel.IsVisible = OligomerBox.IsChecked == true;
+        }
+
         private async void OnRun(object? sender, RoutedEventArgs e)
         {
             if (PresetBox.SelectedItem is not string presetName)
@@ -362,7 +371,10 @@ namespace FCWTNET.Gui
                 Wavelet = wavelet,
                 RefinePeaks = RefineBox.IsChecked == true,
                 DiscoverComponents = DiscoverBox.IsChecked == true,
-                Deconvolve = DeconvolveBox.IsChecked == true
+                Deconvolve = DeconvolveBox.IsChecked == true,
+                MaxOligomerOrder = OligomerBox.IsChecked == true
+                    ? (int)(MaxOrderBox.Value ?? 6)
+                    : 0
             };
 
             if (MzRangeBox.IsChecked == true)
@@ -541,12 +553,27 @@ namespace FCWTNET.Gui
         /// </summary>
         private static string FormatSpecies(CwtWorkflow.Result result)
         {
-            if (result.Species.Count == 0)
+            if (result.Species.Count == 0 && result.Oligomers == null)
             {
                 return "Enable \"Group charge states into species\" to deconvolve.";
             }
 
             var builder = new StringBuilder();
+            if (result.Oligomers is { } ladder)
+            {
+                builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "subunit {0:F1} Da", ladder.SubunitMass));
+                builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "   coverage {0:F2}, plausibility {1:F2}", ladder.Coverage, ladder.Plausibility));
+                foreach (KeyValuePair<int, double> entry in
+                         OligomerAnalysis.AbundanceByOrder(ladder).OrderBy(x => x.Key))
+                {
+                    builder.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                        "   {0}-mer {1,9:F1} Da  {2:E2}",
+                        entry.Key, ladder.SubunitMass * entry.Key, entry.Value));
+                }
+                builder.AppendLine();
+            }
             int index = 1;
             foreach (SpeciesResult species in result.Species)
             {
@@ -596,13 +623,23 @@ namespace FCWTNET.Gui
             IWavelet wavelet = settings.EffectiveWavelet;
             builder.AppendLine($"{wavelet.Name}: resolves components " +
                                $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
+            if (settings.ScaleAxisIsUndersampled)
+            {
+                builder.AppendLine($"WARNING: only {settings.RowsPerResolutionWidth:F1} rows per " +
+                                   $"resolution width; raise voices above " +
+                                   $"{(int)Math.Ceiling(2 / Math.Log2(1 + wavelet.RelativeFrequencyResolution))}");
+            }
             builder.AppendLine($"backend {(settings.Backend ?? Transform.CwtBackends.Default).Name}");
             builder.AppendLine(result.PeaksWereRefined
                 ? $"{result.Peaks.Count} component(s) fitted"
                 : $"{result.Peaks.Count} ridge(s) detected");
-            builder.Append(result.Species.Count > 0
+            builder.AppendLine(result.Species.Count > 0
                 ? $"{result.Species.Count} species deconvolved"
                 : "not deconvolved");
+            builder.Append(result.Oligomers is { } ladder
+                ? $"oligomers: {ladder.SubunitMass:F0} Da subunit, " +
+                  $"{string.Join("/", ladder.Orders)}-mers"
+                : "no oligomer series");
             return builder.ToString();
         }
 

@@ -24,10 +24,25 @@ namespace FCWTNET.Simulation
         public double Abundance { get; set; } = 1.0;
 
         /// <summary>
-        /// Number of isotope peaks to simulate. 1 gives the monoisotopic peak only.
-        /// Use <see cref="IsotopeEnvelope.SuggestedPeakCount"/> for a mass-appropriate value.
+        /// Number of isotope peaks to simulate. 1 gives a single peak.
+        /// Use <see cref="IsotopeEnvelope.SuggestedPeakCount"/> for a mass-appropriate value,
+        /// or <see cref="IsotopeEnvelope.SuggestedWindow"/> together with
+        /// <see cref="FirstIsotopePeak"/> for anything large.
         /// </summary>
         public int IsotopePeaks { get; set; } = 1;
+
+        /// <summary>
+        /// Index of the first isotope peak simulated, in neutrons above the monoisotopic
+        /// peak. 0 starts at the monoisotopic peak, which is right for a peptide.
+        ///
+        /// <para>
+        /// For a large complex it is not: the cluster's mode sits tens of neutrons up, the
+        /// monoisotopic peak is vanishingly weak, and starting from zero would put the
+        /// simulated cluster tens of Da below the real ion. See
+        /// <see cref="IsotopeEnvelope.SuggestedWindow"/>.
+        /// </para>
+        /// </summary>
+        public int FirstIsotopePeak { get; set; }
 
         /// <summary>
         /// Transient decay constant in seconds. When null the simulator's default is used.

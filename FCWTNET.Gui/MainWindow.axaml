@@ -162,6 +162,17 @@
           <CheckBox x:Name="DeconvolveBox" Content="Group charge states into species"
                     Foreground="#C8C8D8"/>
 
+          <CheckBox x:Name="OligomerBox" Content="Read as an oligomer series"
+                    Foreground="#C8C8D8" IsCheckedChanged="OnOligomerToggled"/>
+          <TextBlock Text="An n-mer at charge n*z sits exactly on the monomer at z, so a charge-state comb cannot tell them apart. This asks instead which charges the Rayleigh limit makes believable."
+                     TextWrapping="Wrap" Foreground="#8A8AA0" FontSize="11"/>
+
+          <StackPanel x:Name="OligomerPanel" Spacing="4" IsVisible="False">
+            <TextBlock Text="Largest oligomer considered" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="MaxOrderBox" Minimum="2" Maximum="24"
+                           Increment="1" Value="6" FormatString="0"/>
+          </StackPanel>
+
           <Separator Background="#2A2A38"/>
           <TextBlock Text="Display" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
 

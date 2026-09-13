@@ -114,9 +114,61 @@ regenerates the envelope live when you switch mode or move the centroid.
 | `myoglobin-native` | A narrow envelope near the Rayleigh limit, ~8+ to 12+ |
 | `mixture` | Two species with interleaving isotope clusters |
 | `isotope-beat` | Two peptides over 100 ms; unresolved isotopes beat 26 and 10 times |
+| `homotetramer` | A 13.2 kDa subunit as monomer through tetramer, native ESI |
+| `hetero-complex` | Haemoglobin α2β2 plus every sub-complex |
+| `oligomer-overlap` | A monomer and its dimer, every peak exactly coincident |
 | `fast-decay` | Decay short against the acquisition; the ridge fades |
 | `frequency-drift` | A drifting ion; the ridge slopes across the scalogram |
 | `low-snr` | SNR 3 with 12-bit digitisation |
+
+### Multi-protein complexes
+
+`ProteinComplex` describes a stoichiometry of `ProteinSubunit`s, and `ComplexAssembly`
+builds the ladder a native spray actually produces — the intact complex plus its partial
+assemblies:
+
+```csharp
+// Homo-oligomer: monomer through tetramer
+var ladder = ComplexAssembly.Homooligomer(new ProteinSubunit("S", 13215), maxOrder: 4);
+
+// Hetero: alpha2beta2 and every sub-complex (a, b, a2, ab, b2, a2b, ab2, a2b2)
+var hb = ComplexAssembly.Hetero(new[] { (alpha, 2), (beta, 2) });
+
+var species = ComplexAssembly.CreateSpecies(ladder);   // native envelope per stoichiometry
+```
+
+Assembly is non-covalent, so masses simply add: an n-mer weighs exactly n times its
+subunit. Abundance is shared by `AssemblyAbundance` — `IntactDominant` for a well-preserved
+spray where sub-complexes are dissociation products, `MonomerDominant` for a weakly
+associating system, or an explicit list.
+
+**Why complexes make spectra hard.** Native charge follows the Rayleigh limit
+`z ≈ 0.0778·√M`, so an n-mer carries only `√n` times the monomer's charge and therefore
+lands at `√n` times its m/z. The whole ladder crowds into a couple of thousand Th and less
+than an octave of frequency, interleaved:
+
+| | mass | charges | m/z | frequency |
+|---|---|---|---|---|
+| monomer | 13.2 kDa | 7–11+ | 1202–1889 | 335–420 kHz |
+| dimer | 26.4 kDa | 10–15+ | 1763–2644 | 283–347 kHz |
+| trimer | 39.6 kDa | 12–19+ | 2088–3305 | 253–318 kHz |
+| tetramer | 52.9 kDa | 14–22+ | 2404–3777 | 237–297 kHz |
+
+**And genuinely ambiguous.** An n-mer at charge `n·z` sits at `nM/(nz) = M/z` — *exactly*
+the monomer at z, not nearly. On the `homotetramer` preset `ChargeStateDeconvolution`
+returns a single species at 26,445 Da carrying charge states 7+ to 18+, and it is not wrong
+to: that reading explains every peak. The contiguity prior does not rescue it either,
+because it was built to reject 2M as a harmonic and here 2M is real.
+
+### The isotope-window trap
+
+Above a few tens of kDa the isotope cluster's mode is far from the monoisotopic peak — a
+64 kDa complex has a Poisson mean of 38 — so asking for 24 peaks *from zero* does not
+simulate a truncated cluster, it simulates the wrong m/z: the renormalisation puts the
+whole abundance onto a tail that should have been invisible, about 38 Da low.
+`IsotopeEnvelope.SuggestedWindow` returns a window centred on the mode instead, and
+`IonSpecies.FirstIsotopePeak` carries it, so capping the peak count narrows the cluster
+rather than moving it.
 
 ## Transform backends
 
@@ -328,6 +380,8 @@ controls it exposes:
   position came from.
 - **Group charge states into species**, which fills a Species panel with the mass, its
   spread in ppm, the charge states, contiguity, and the envelope's ionisation mode.
+- **Read as an oligomer series**, with the largest order to consider, reporting the subunit
+  and the abundance of each n-mer.
 - A peak table carrying the assigned charge and `FitResidual` per ridge.
 
 It is tested headlessly — Avalonia's headless platform with Skia — so the window, its
@@ -463,6 +517,52 @@ systematically with charge state within a single species, so "same species" impl
 dynamics, not identical. A time constant much longer than the window is reported as no
 decay rather than as the slope of the noise.
 
+### Oligomer series
+
+`OligomerAnalysis` answers the question the comb cannot: is this one protein, or a ladder
+of one subunit?
+
+**What discriminates is charge, not position.** Positions are exactly degenerate, but the
+Rayleigh limit makes the *plausible charges* for a given mass a narrow band. Explaining a
+monomer's peaks as a dimer forces them to twice the charge, which for the monomer's
+low-m/z states lands many envelope widths outside that band. Scoring each candidate subunit
+by how believable the charges it implies are is enough to pick the ladder out, using only
+the model `ChargeStateEnvelope` already encodes.
+
+Two priors keep it honest. **Completeness** is measured from the monomer, not from the
+smallest order seen: a real assembly ladder shows its small members, so a reading that
+lands on 3-, 4- and 5-mers with no monomer or dimer is being over-expressive. And a smaller
+subunit must beat the incumbent by a factor before it is adopted — a ladder on `m/k`
+contains the ladder on `m` as its higher orders, so it can never fit worse and halving the
+subunit is a claim rather than a free improvement.
+
+On the `homotetramer` preset, where the comb says "one species at 26,445 Da":
+
+```
+oligomers: subunit 13222.8 Da, orders 1/2/3/4, coverage 1.00, plausibility 0.79
+  1-mer (13222.8 Da): 1.23E-002
+  2-mer (26445.6 Da): 1.74E-002
+  3-mer (39668.4 Da): 4.06E-002
+  4-mer (52891.2 Da): 9.38E-002
+```
+
+The true subunit is 13,215 Da, so that is +590 ppm — the isotope centroid offset again —
+and the tetramer is correctly the most abundant.
+
+**It is sensitive to peak quality.** A short or coarse transform can make it return a
+confidently wrong divisor rather than fail: on this preset, dropping from 64 voices to 48
+at c0 = 140 yields a 16.5 kDa subunit instead of 13.2. Set `MaxOrder` to the stoichiometry
+you expect, check `Score`, and watch the undersampling warning below.
+
+### Sampling the scale axis
+
+Wavelet resolution and scale-grid spacing are different things, and the second is easy to
+get wrong. `CwtSettings.RowsPerResolutionWidth` is how many rows fall inside one resolution
+width; below about 2 a ridge is described by two samples and its position degrades quietly.
+The CLI and the app both warn when `ScaleAxisIsUndersampled`. At c0 = 140, 48 voices gives
+1.1 rows and 64 gives 1.5 — which is the difference between the wrong subunit and the right
+one above.
+
 ### On the CLI
 
 ```bash
@@ -472,6 +572,8 @@ dotnet run --project FCWTNET.Cli -- analyze ./out/myoglobin-denatured.csv --out 
 dotnet run --project FCWTNET.Cli -- analyze ./out/isotope-beat.csv --out ./out \
     --c0 20 --min-mz 400 --max-mz 900 --max-samples 200000 --beats
 ```
+
+`--oligomers N` reads the peaks as a series of one subunit up to N-mers.
 
 `--deconvolve` writes a `*.groups.csv` with one row per assigned peak, carrying the
 species mass, assigned charge, per-peak mass error, envelope mode and similarity, and the
@@ -504,6 +606,8 @@ scaling; `PlottingUtils` exports OxyPlot models to PDF or PNG.
   the two modes score within about 5% of each other on denatured myoglobin, and which one
   wins flips with the loss of a single charge state. The mode is reported; it should not
   yet be relied on.
+- `OligomerAnalysis` assumes the sample really is a series of one subunit, and will fit a
+  ladder to a mixture that is not one. It is also sensitive to peak quality, as above.
 - `FitWithSplitting` over-fits a full protein charge envelope: an isotope cluster is not
   one wavelet response, so the splitting keeps finding real structure that is not a charge
   state. It is validated on blends of a few components and is off by default.

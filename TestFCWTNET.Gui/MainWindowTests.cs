@@ -437,6 +437,68 @@ namespace TestFCWTNET.Gui
             StringAssert.Contains("Detected peaks", Find<TextBlock>(window, "PeakHeading").Text!);
         }
 
+        [AvaloniaTest]
+        public void TheOligomerOrderInputAppearsOnlyWhenAskedFor()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            var toggle = Find<CheckBox>(window, "OligomerBox");
+            var panel = Find<StackPanel>(window, "OligomerPanel");
+
+            Assert.IsFalse(panel.IsVisible);
+            toggle.IsChecked = true;
+            Assert.IsTrue(panel.IsVisible);
+            toggle.IsChecked = false;
+            Assert.IsFalse(panel.IsVisible);
+        }
+
+        /// <summary>
+        /// A homo-oligomer ladder through the UI. The charge-state comb collapses it into
+        /// one species at a multiple of the subunit, so this checks the app can also say
+        /// what the subunit actually is.
+        /// </summary>
+        [AvaloniaTest]
+        public void ReadingAComplexAsAnOligomerSeriesFillsTheSpeciesPanel()
+        {
+            var window = new MainWindow();
+            window.Show();
+
+            Find<ComboBox>(window, "PresetBox").SelectedItem = "homotetramer";
+            Find<NumericUpDown>(window, "MaxSamplesBox").Value = 32768;
+            // 64 voices, not 48: at c0 = 140 a 48-voice grid puts only 1.1 rows inside the
+            // wavelet's resolution width and the ladder comes back confidently wrong.
+            Find<NumericUpDown>(window, "VoicesBox").Value = 64;
+            Find<NumericUpDown>(window, "DurationBox").Value = 8;
+            Find<NumericUpDown>(window, "C0Box").Value = 140;
+
+            Find<CheckBox>(window, "MzRangeBox").IsChecked = true;
+            Find<NumericUpDown>(window, "MinMzBox").Value = 1100;
+            Find<NumericUpDown>(window, "MaxMzBox").Value = 4000;
+            Find<CheckBox>(window, "RefineBox").IsChecked = true;
+            Find<CheckBox>(window, "OligomerBox").IsChecked = true;
+            Find<NumericUpDown>(window, "MaxOrderBox").Value = 4;
+
+            var scalogram = Find<Image>(window, "ScalogramImage");
+            var species = Find<TextBlock>(window, "SpeciesText");
+            var status = Find<TextBlock>(window, "StatusText");
+
+            RaiseClick(window, "RunButton");
+            PumpUntil(() => scalogram.Source != null, TimeSpan.FromSeconds(180));
+
+            TestContext.WriteLine(status.Text);
+            TestContext.WriteLine(species.Text);
+
+            StringAssert.Contains("subunit", species.Text!);
+            StringAssert.Contains("-mer", species.Text!);
+            StringAssert.Contains("oligomers:", status.Text!);
+            // Deliberately no assertion on the subunit mass. The ladder search needs good
+            // peak positions and this test runs a short, coarse transform for speed --
+            // exactly the regime where it can return a confidently wrong divisor. That it
+            // recovers the real subunit is asserted in OligomerAnalysisTests, at settings
+            // that earn it.
+        }
+
         private static void RaiseClick(Control root, string name)
         {
             var button = Find<Button>(root, name);

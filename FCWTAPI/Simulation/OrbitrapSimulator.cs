@@ -184,7 +184,14 @@ namespace FCWTNET.Simulation
                         $"IsotopePeaks must be at least 1 (m/z {ion.MonoisotopicMz:F4})", nameof(species));
                 }
 
-                double[] intensities = IsotopeEnvelope.RelativeIntensities(ion.MonoisotopicMass, ion.IsotopePeaks);
+                if (ion.FirstIsotopePeak < 0)
+                {
+                    throw new ArgumentException(
+                        $"FirstIsotopePeak must not be negative (m/z {ion.MonoisotopicMz:F4})", nameof(species));
+                }
+
+                double[] intensities = IsotopeEnvelope.RelativeIntensities(
+                    ion.MonoisotopicMass, ion.IsotopePeaks, ion.FirstIsotopePeak);
                 double tau = ion.DecayConstant ?? _config.DefaultDecayConstant;
                 if (tau <= 0 && _config.Decay != DecayModel.None)
                 {
@@ -193,7 +200,9 @@ namespace FCWTNET.Simulation
 
                 for (int k = 0; k < ion.IsotopePeaks; k++)
                 {
-                    double mz = ion.MzForIsotope(k);
+                    // The window may start above the monoisotopic peak, so the isotope
+                    // index is absolute while the intensity index is relative to it.
+                    double mz = ion.MzForIsotope(ion.FirstIsotopePeak + k);
                     double frequency = FrequencyForMz(mz);
                     if (frequency >= nyquist)
                     {

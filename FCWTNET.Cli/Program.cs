@@ -90,7 +90,9 @@ Analysis options:
   --beats             Read each species' charge off its isotope beat
   --refine            Fit a sum of wavelet responses instead of reading maxima
   --discover          With --refine, also split blends into components that
-                      produced no maximum of their own");
+                      produced no maximum of their own
+  --oligomers [N]     Read the peaks as an oligomer series of one subunit,
+                      up to N-mers (default 8)");
         }
 
         private static int ListPresets()
@@ -259,6 +261,15 @@ Analysis options:
             }
             Console.WriteLine($"  resolves components " +
                               $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
+            // A sharp wavelet on a coarse scale grid is a peak described by two samples.
+            var sampling = new CwtSettings { Voices = voices, Wavelet = wavelet };
+            if (sampling.ScaleAxisIsUndersampled)
+            {
+                Console.WriteLine($"  WARNING: only {sampling.RowsPerResolutionWidth:F1} scale rows " +
+                                  $"per resolution width; raise --voices above " +
+                                  $"{(int)Math.Ceiling(2 / Math.Log2(1 + wavelet.RelativeFrequencyResolution))} " +
+                                  $"or ridge positions will be unreliable");
+            }
 
             var cwt = new CWTObject(samples, startOctave, endOctave, voices, c0, 0, false,
                 samplingRate, calibrationCoefficient, outputDirectory)
@@ -314,9 +325,10 @@ Analysis options:
                 MeasureBeats(peaks, modulus, cwt, samplingRate, calibrationCoefficient, beats);
             }
 
-            if (options.Has("deconvolve"))
+            if (options.Has("deconvolve") || options.Has("oligomers"))
             {
-                Deconvolve(name, peaks, outputDirectory, beats);
+                Deconvolve(name, peaks, outputDirectory, beats,
+                    options.Has("oligomers") ? options.GetInt("oligomers", 8) : 0);
             }
         }
 
@@ -376,13 +388,37 @@ Analysis options:
         /// the only form the answer is useful in once more than one species is present.
         /// </summary>
         private static void Deconvolve(string name, IReadOnlyList<DetectedPeak> peaks,
-            string outputDirectory, IReadOnlyDictionary<int, IsotopeBeatResult> beats)
+            string outputDirectory, IReadOnlyDictionary<int, IsotopeBeatResult> beats,
+            int maxOligomerOrder = 0)
         {
             var mz = peaks.Select(p => p.Position).ToList();
             var magnitude = peaks.Select(p => p.Magnitude).ToList();
             IReadOnlyList<ChargeStateGroup> groups = ChargeStateDeconvolution.Deconvolve(mz, magnitude);
 
             Console.WriteLine($"  deconvolution: {groups.Count} species from {peaks.Count} peaks");
+
+            // An oligomer series is exactly degenerate under a charge-state comb -- an
+            // n-mer at charge n*z sits on the monomer at z -- so the comb's answer is a
+            // starting point for the ladder search, not a conclusion.
+            if (maxOligomerOrder > 0 && groups.Count > 0)
+            {
+                OligomerLadder? ladder = OligomerAnalysis.FindLadder(mz, magnitude,
+                    groups[0].MonoisotopicMass, new OligomerOptions { MaxOrder = maxOligomerOrder });
+                if (ladder == null)
+                {
+                    Console.WriteLine("  oligomers: no ladder explained the peaks");
+                }
+                else
+                {
+                    Console.WriteLine($"  oligomers: {ladder}");
+                    foreach (KeyValuePair<int, double> entry in
+                             OligomerAnalysis.AbundanceByOrder(ladder).OrderBy(e => e.Key))
+                    {
+                        Console.WriteLine($"    {entry.Key}-mer " +
+                                          $"({ladder.SubunitMass * entry.Key:F1} Da): {entry.Value:E2}");
+                    }
+                }
+            }
             string path = Path.Combine(outputDirectory, $"{name}.groups.csv");
             using (var writer = new StreamWriter(path))
             {

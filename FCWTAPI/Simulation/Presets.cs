@@ -123,6 +123,9 @@ namespace FCWTNET.Simulation
                 MyoglobinNative(),
                 Mixture(),
                 IsotopeBeat(),
+                Homotetramer(),
+                HeteroComplex(),
+                OligomerOverlap(),
                 FastDecay(),
                 FrequencyDrift(),
                 LowSignalToNoise()
@@ -248,6 +251,133 @@ namespace FCWTNET.Simulation
                 // that; the isotopes are 0.05% apart, so it must not come close to resolving
                 // them. c0 = 20 sits at 11.8%, comfortably between.
                 suggestedC0: 20f);
+        }
+
+        /// <summary>A streptavidin-like subunit; the classic native-MS homotetramer.</summary>
+        private static ProteinSubunit StreptavidinSubunit => new("S", 13215.0);
+
+        /// <summary>
+        /// Haemoglobin's two chains, at their approximate holo masses. The haem is folded
+        /// into the subunit rather than modelled as a ligand, because nothing downstream
+        /// distinguishes a bound cofactor from more protein.
+        /// </summary>
+        private static ProteinSubunit HaemoglobinAlpha => new("a", 15126.4 + 616.5);
+
+        private static ProteinSubunit HaemoglobinBeta => new("b", 15867.2 + 616.5);
+
+        /// <summary>
+        /// A homotetramer and its dissociation ladder, the shape of a native spray of a
+        /// self-assembling protein.
+        ///
+        /// <para>
+        /// Charge in native electrospray follows the Rayleigh limit, so an n-mer carries
+        /// only sqrt(n) times the monomer's charge and lands at sqrt(n) times its m/z. All
+        /// four oligomers therefore crowd into about 1200-3800 Th and less than an octave
+        /// of frequency, interleaved. This is what a complex spectrum actually looks like,
+        /// and none of the earlier presets produce it.
+        /// </para>
+        /// </summary>
+        public static SimulationPreset Homotetramer()
+        {
+            IReadOnlyList<ProteinComplex> ladder =
+                ComplexAssembly.Homooligomer(StreptavidinSubunit, 4);
+
+            return new SimulationPreset(
+                "homotetramer",
+                "A 13.2 kDa subunit as monomer through tetramer under native ESI: four charge " +
+                "envelopes marching to higher m/z as sqrt(n) and interleaving with each other.",
+                BaseConfig(),
+                ComplexAssembly.CreateSpecies(ladder).ToList(),
+                // Adjacent charge states of the tetramer are ~2.3% apart in frequency at
+                // the top of its envelope, so the wavelet has to beat that.
+                suggestedC0: 140f);
+        }
+
+        /// <summary>
+        /// A hetero-complex and every partial assembly of it: haemoglobin as alpha2beta2,
+        /// down through alpha2beta, alphabeta, beta2 and the free chains.
+        ///
+        /// <para>
+        /// The hard part is not the intact complex but the sub-complexes. alpha2, alphabeta
+        /// and beta2 differ by only the 741 Da between the two chains -- 2.3% of their mass
+        /// -- so their envelopes lie almost on top of one another, and telling them apart
+        /// is telling apart three masses that differ by less than the width of a charge
+        /// state.
+        /// </para>
+        /// </summary>
+        public static SimulationPreset HeteroComplex()
+        {
+            IReadOnlyList<ProteinComplex> ladder = ComplexAssembly.Hetero(
+                new[] { (HaemoglobinAlpha, 2), (HaemoglobinBeta, 2) });
+
+            return new SimulationPreset(
+                "hetero-complex",
+                "Haemoglobin as alpha2beta2 (64.5 kDa) plus every sub-complex: alpha2, alphabeta " +
+                "and beta2 differ by only 741 Da and their envelopes nearly coincide.",
+                BaseConfig(),
+                ComplexAssembly.CreateSpecies(ladder).ToList(),
+                suggestedC0: 140f);
+        }
+
+        /// <summary>
+        /// The degeneracy that makes oligomers genuinely ambiguous, isolated so it can be
+        /// looked at.
+        ///
+        /// <para>
+        /// An n-mer at charge n*z sits at m/z nM/(nz) = M/z, exactly where the monomer at
+        /// charge z sits. Not nearly -- exactly, so no amount of resolution separates them.
+        /// Here the monomer runs 6+ to 10+ and the dimer 12+ to 20+, so <em>every</em>
+        /// monomer peak is also a dimer peak and the dimer's odd charge states fall between
+        /// them. A charge-state comb sees one envelope at twice the spacing and can read it
+        /// either way, which is why
+        /// <see cref="Analysis.ChargeStateDeconvolution"/>'s contiguity prior -- built to
+        /// reject 2M as a harmonic -- answers the wrong question here: 2M is real.
+        /// </para>
+        ///
+        /// <para>
+        /// What separates them is charge, not position. At one shared m/z the dimer carries
+        /// twice the charge, so its isotope beat runs at half the rate.
+        /// </para>
+        /// </summary>
+        public static SimulationPreset OligomerOverlap()
+        {
+            ProteinSubunit subunit = StreptavidinSubunit;
+            var monomer = new ProteinComplex(new[] { (subunit, 1) }, 0.5);
+            var dimer = new ProteinComplex(new[] { (subunit, 2) }, 0.5);
+
+            // Charge ranges and envelope widths are forced rather than taken from the
+            // Rayleigh model: the point of this preset is to put every monomer state on a
+            // dimer state, and the model's own envelope is too narrow at the dimer's top
+            // end to reach 20+. Everything else about the two ions is physical.
+            var species = new List<IonSpecies>();
+            species.AddRange(ComplexAssembly.CreateSpecies(new[] { monomer },
+                new ChargeStateEnvelopeOptions
+                {
+                    Mode = IonizationMode.Native,
+                    MinCharge = 6,
+                    MaxCharge = 10,
+                    CentroidCharge = 8,
+                    Width = 2,
+                    RelativeThreshold = 1e-6
+                }));
+            species.AddRange(ComplexAssembly.CreateSpecies(new[] { dimer },
+                new ChargeStateEnvelopeOptions
+                {
+                    Mode = IonizationMode.Native,
+                    MinCharge = 12,
+                    MaxCharge = 20,
+                    CentroidCharge = 16,
+                    Width = 4,
+                    RelativeThreshold = 1e-6
+                }));
+
+            return new SimulationPreset(
+                "oligomer-overlap",
+                "A monomer at 6+ to 10+ and its dimer at 12+ to 20+: every monomer peak sits " +
+                "exactly on a dimer peak, so position alone cannot say which is there.",
+                BaseConfig(),
+                species,
+                suggestedC0: 140f);
         }
 
         /// <summary>Myoglobin at 13+, matching the bundled sample transient's setup.</summary>

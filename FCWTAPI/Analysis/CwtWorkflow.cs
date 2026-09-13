@@ -62,6 +62,14 @@ namespace FCWTNET.Analysis
         public bool Deconvolve { get; set; }
 
         /// <summary>
+        /// Also read the peaks as an oligomer series of one subunit, up to this order.
+        /// 0 is off. A charge-state comb cannot answer this on its own -- an n-mer at
+        /// charge n*z sits exactly on the monomer at z -- so it needs the Rayleigh
+        /// argument in <see cref="OligomerAnalysis"/>.
+        /// </summary>
+        public int MaxOligomerOrder { get; set; }
+
+        /// <summary>
         /// Minimum separation between reported ridges, in rows. Null derives one from
         /// <see cref="Voices"/> and <see cref="C0"/>: a component occupies roughly
         /// c0-dependent bandwidth, so suppressing anything closer than half the wavelet's
@@ -70,6 +78,28 @@ namespace FCWTNET.Analysis
         /// where adjacent states can sit only two or three voices apart.
         /// </summary>
         public int? PeakMinimumRowSeparation { get; set; }
+
+        /// <summary>
+        /// How many scale rows fall within one of the wavelet's resolution widths.
+        ///
+        /// <para>
+        /// This is the sampling question for the scale axis, and it is separate from the
+        /// wavelet's own resolution: a sharp wavelet on a coarse grid is a peak described
+        /// by two samples, and its position is correspondingly poor. Below about 2 the
+        /// results degrade quietly rather than obviously -- on the homotetramer preset at
+        /// c0 = 140, dropping from 64 voices (1.5 rows) to 48 (1.1 rows) does not fail, it
+        /// returns a confident and wrong 16.5 kDa subunit in place of the real 13.2 kDa
+        /// one. <see cref="ScaleAxisIsUndersampled"/> is what says so out loud.
+        /// </para>
+        /// </summary>
+        public double RowsPerResolutionWidth =>
+            Voices * Math.Log2(1 + EffectiveWavelet.RelativeFrequencyResolution);
+
+        /// <summary>
+        /// True when the scale grid samples the wavelet's response too coarsely to locate
+        /// a ridge reliably. Raise <see cref="Voices"/>, or lower the wavelet's resolution.
+        /// </summary>
+        public bool ScaleAxisIsUndersampled => RowsPerResolutionWidth < 2;
 
         /// <summary>The row separation actually used.</summary>
         public int EffectivePeakSeparation()
@@ -114,6 +144,12 @@ namespace FCWTNET.Analysis
 
             /// <summary>Species found, when <see cref="CwtSettings.Deconvolve"/> was set.</summary>
             public IReadOnlyList<SpeciesResult> Species { get; init; } = Array.Empty<SpeciesResult>();
+
+            /// <summary>
+            /// Best oligomer-series reading, when <see cref="CwtSettings.MaxOligomerOrder"/>
+            /// was set. Null when it was not, or when no ladder explained the peaks.
+            /// </summary>
+            public OligomerLadder? Oligomers { get; init; }
 
             /// <summary>The scale grid the transform actually ran on.</summary>
             public ScaleGrid ScaleGrid => Cwt.EffectiveScaleGrid;
@@ -204,14 +240,27 @@ namespace FCWTNET.Analysis
             }
 
             IReadOnlyList<SpeciesResult> species = Array.Empty<SpeciesResult>();
-            if (settings.Deconvolve && peaks.Count > 0)
+            OligomerLadder? oligomers = null;
+            if ((settings.Deconvolve || settings.MaxOligomerOrder > 0) && peaks.Count > 0)
             {
                 var mz = peaks.Select(p => p.Position).ToList();
                 var magnitude = peaks.Select(p => p.Magnitude).ToList();
-                species = EnvelopeTemplateMatching
-                    .Annotate(ChargeStateDeconvolution.Deconvolve(mz, magnitude), mz, magnitude)
-                    .Select(pair => new SpeciesResult { Group = pair.Group, Envelope = pair.Match })
-                    .ToList();
+                IReadOnlyList<ChargeStateGroup> groups =
+                    ChargeStateDeconvolution.Deconvolve(mz, magnitude);
+
+                if (settings.Deconvolve)
+                {
+                    species = EnvelopeTemplateMatching.Annotate(groups, mz, magnitude)
+                        .Select(pair => new SpeciesResult { Group = pair.Group, Envelope = pair.Match })
+                        .ToList();
+                }
+                if (settings.MaxOligomerOrder > 0 && groups.Count > 0)
+                {
+                    // The comb's mass is where the ladder search starts, not its answer.
+                    oligomers = OligomerAnalysis.FindLadder(mz, magnitude,
+                        groups[0].MonoisotopicMass,
+                        new OligomerOptions { MaxOrder = settings.MaxOligomerOrder });
+                }
             }
 
             return new Result
@@ -222,6 +271,7 @@ namespace FCWTNET.Analysis
                 Peaks = peaks,
                 GroundTruth = groundTruth,
                 Species = species,
+                Oligomers = oligomers,
                 PeaksWereRefined = settings.RefinePeaks,
                 WindowSeconds = (double)window.Length / samplingRate
             };
