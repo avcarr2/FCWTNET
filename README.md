@@ -608,6 +608,14 @@ scaling; `PlottingUtils` exports OxyPlot models to PDF or PNG.
   yet be relied on.
 - `OligomerAnalysis` assumes the sample really is a series of one subunit, and will fit a
   ladder to a mixture that is not one. It is also sensitive to peak quality, as above.
+- **It cannot tell a real repeating unit from a single species that merely admits one.**
+  The halved reading's score over the whole one is 1.152 for a genuine 4×19 kDa ladder,
+  1.157 for a lone 52.9 kDa species and 1.167 for a lone 76 kDa species — the true case
+  lies *between* the two false ones, so no `SubunitImprovementFactor` separates them. The
+  default of 1.2 errs towards not splitting, which reports a real species at the cost of
+  halving a true tetramer's subunit; set it to 1.0 when the sample is known to be an
+  oligomer series. The fix is to score how many charge states land on each order: a real
+  oligomer shows an envelope per order, a misread single species scatters one or two.
 - `FitWithSplitting` over-fits a full protein charge envelope: an isotope cluster is not
   one wavelet response, so the splitting keeps finding real structure that is not a charge
   state. It is validated on blends of a few components and is off by default.

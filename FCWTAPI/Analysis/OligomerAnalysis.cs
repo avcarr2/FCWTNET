@@ -129,6 +129,25 @@ namespace FCWTNET.Analysis
         /// slightly better by having more ways to place each peak. Halving the subunit is a
         /// claim, not a free improvement, and this is the evidence it has to bring.
         /// </para>
+        ///
+        /// <para>
+        /// <b>This does not separate a real repeating unit from a single species that
+        /// merely admits one, and no value of it can.</b> Measured on exact peak lists, the
+        /// score of the halved reading over the whole one comes out at 1.152 for a genuine
+        /// 4x19 kDa ladder, 1.157 for a lone 52.9 kDa species and 1.167 for a lone 76 kDa
+        /// species -- the true case lies between the two false ones. Coverage, plausibility
+        /// and completeness are all satisfied either way, because an n-mer's charge states
+        /// at order n are the same physical charges as the species' own.
+        /// </para>
+        ///
+        /// <para>
+        /// What would separate them is how many charge states land on each order. A real
+        /// oligomer shows a charge <em>envelope</em> per order, several consecutive charges
+        /// each; a single envelope misread as a ladder has to scatter its states thinly,
+        /// one or two per order. That is not implemented, so the default errs towards not
+        /// splitting: it reports the larger mass, which is at least a species that is
+        /// really present. Set it to 1.0 when the sample is known to be an oligomer series.
+        /// </para>
         /// </summary>
         public double SubunitImprovementFactor { get; set; } = 1.2;
     }
