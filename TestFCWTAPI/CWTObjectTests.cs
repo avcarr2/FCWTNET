@@ -44,8 +44,23 @@ namespace TestFCWTAPI
             CWTObject cosCWT = new(cosine, 1, 6, 200, (float)(2 * Math.PI), 4, false);
             cosCWT.CalculateFrequencyAxis();
             cosCWT.PerformCWT();
-            Assert.AreEqual(cosCWT.FrequencyAxis.WaveletCenterFrequencies[^5], (2 * Math.PI) / Math.Pow(2, 1.025), 0.001);
-            Assert.AreEqual(cosCWT.FrequencyAxis.WaveletCenterFrequencies[0], (2 * Math.PI) / Math.Pow(2, 7), 0.00001);
+            // The axis holds normalised centre frequencies (cycles per sample):
+            //   f[i] = c0 / (2*pi * 2^(psoctave + (N-1-i)/nvoices)),  N = noctaves*nvoices
+            // Previously this divided c0 by the scale without the 2*pi, which made every
+            // "true frequency" derived from it 2*pi too large — well above Nyquist for
+            // real transients — and it ignored psoctave entirely.
+            // C0 is a float on CWTObject, so build the expectation from the same value.
+            double c0 = (float)(2 * Math.PI);
+            const int Nvoices = 200;
+            const int Psoctave = 1;
+            int n = (6 - Psoctave + 1) * Nvoices;
+            double Expected(int index) =>
+                c0 / (2 * Math.PI * Math.Pow(2, Psoctave + (double)(n - 1 - index) / Nvoices));
+            Assert.AreEqual(Expected(n - 5), cosCWT.FrequencyAxis.WaveletCenterFrequencies[^5], 1e-12);
+            Assert.AreEqual(Expected(0), cosCWT.FrequencyAxis.WaveletCenterFrequencies[0], 1e-12);
+            // c0 = 2*pi with psoctave = 1 puts the smallest scale exactly at Nyquist
+            // (2*pi / (2*pi * 2^1) = 0.5); allow for float rounding in C0.
+            Assert.LessOrEqual(cosCWT.FrequencyAxis.WaveletCenterFrequencies[^1], 0.5 + 1e-6);
             Assert.AreEqual(cosCWT.OutputCWT.Rows, cosCWT.FrequencyAxis.Length);
         }
         [Test]
@@ -88,10 +103,15 @@ namespace TestFCWTAPI
             cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "cosTestCWTHeatmapMZVals.pdf", CWTFrequencies.FrequencyUnits.MZValues, testDataName);
             cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "cosTestCWTHeatmapWindowed.pdf", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName, 0.1, 0.3, 1.5, 2.5);
             Assert.Throws<ArgumentException>(() => cosCWT.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, "xyReflectedHeatmapc0-0.001.xlsx", CWTFrequencies.FrequencyUnits.WaveletFrequency, testDataName));
+            // Exercises the >100000-column time-axis compression path in GenerateHeatMap,
+            // so the signal has to stay longer than that. The scale count does not affect
+            // what is under test, and 6 octaves x 200 voices over 150000 samples needs
+            // roughly 10 GB once the jagged arrays, their 2D copies, the modulus and the
+            // transposed copy all coexist. Two octaves x 20 voices covers the same path.
             double[] longCosine = Enumerable.Range(1, 150000)
                             .Select(i => FunctionGenerator.GenerateCosineWave((double)i * 0.08 * Math.PI))
                             .ToArray();
-            CWTObject longCosCWT = new(longCosine, 1, 6, 200, 50, 4, false, 1000, 7.5e12, workingPath: testWorkingPath);
+            CWTObject longCosCWT = new(longCosine, 1, 2, 20, 50, 4, false, 1000, 7.5e12, workingPath: testWorkingPath);
             longCosCWT.PerformCWT();
             longCosCWT.CalculateTimeAxis();
             longCosCWT.CalculateFrequencyAxis();

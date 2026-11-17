@@ -1,0 +1,566 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using FCWTNET;
+using FCWTNET.Analysis;
+using FCWTNET.Simulation;
+using FCWTNET.Transform;
+using FCWTNET.Transform.Wavelets;
+using FCWTNET.Visualization;
+
+namespace FCWTNET.Cli
+{
+    public static class Program
+    {
+        public static int Main(string[] args)
+        {
+            try
+            {
+                if (args.Length == 0)
+                {
+                    PrintUsage();
+                    return 1;
+                }
+
+                var options = CommandLine.Parse(args.Skip(1).ToArray());
+                switch (args[0].ToLowerInvariant())
+                {
+                    case "simulate":
+                        return Simulate(options);
+                    case "analyze":
+                    case "analyse":
+                        return Analyze(options);
+                    case "demo":
+                        return Demo(options);
+                    case "presets":
+                        return ListPresets();
+                    case "wavelets":
+                        return ListWavelets();
+                    case "help":
+                    case "--help":
+                    case "-h":
+                        PrintUsage();
+                        return 0;
+                    default:
+                        Console.Error.WriteLine($"Unknown command '{args[0]}'.");
+                        PrintUsage();
+                        return 1;
+                }
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine($"error: {exception.Message}");
+                return 1;
+            }
+        }
+
+        private static void PrintUsage()
+        {
+            Console.WriteLine(@"fcwtnet - simulate and analyse Orbitrap transients with a CWT
+
+Usage:
+  fcwtnet simulate --preset <name> --out <dir> [--seed N] [--duration S]
+  fcwtnet analyze <transient.csv> --out <dir> [options]
+  fcwtnet demo --out <dir>
+  fcwtnet presets
+
+Commands:
+  simulate   Generate a transient CSV plus its ground truth JSON.
+  analyze    Run a CWT over a transient and write scalogram PNGs and a peak table.
+  demo       Simulate and analyse every preset.
+  presets    List the available simulation presets.
+  wavelets   List the available analysing wavelets.
+
+Analysis options:
+  --octaves <lo:hi>   Scale range, e.g. 2:6            (default 2:6)
+  --voices N          Scales per octave                (default 48)
+  --c0 F              Morlet central frequency         (default 6)
+  --wavelet SPEC      morlet[:c0] | paul[:order] | bump[:centre,width]
+                      | log-gabor[:centre,bandwidth] | dog[:order]
+  --colormap NAME     viridis | magma | blues | greys  (default viridis)
+  --scale NAME        linear | log | sqrt              (default linear)
+  --max-samples N     Truncate long transients         (default 65536)
+  --backend NAME      auto | managed | native          (default auto)
+  --peaks N           Peaks to report                  (default 10)
+  --min-mz F          Lowest m/z to transform          (bounds the scale grid)
+  --max-mz F          Highest m/z to transform         (bounds the scale grid)
+  --deconvolve        Group peaks into species and assign charge states
+  --beats             Read each species' charge off its isotope beat
+  --refine            Fit a sum of wavelet responses instead of reading maxima
+  --discover          With --refine, also split blends into components that
+                      produced no maximum of their own
+  --oligomers [N]     Read the peaks as an oligomer series of one subunit,
+                      up to N-mers (default 8)");
+        }
+
+        private static int ListPresets()
+        {
+            Console.WriteLine("Available presets:");
+            foreach (SimulationPreset preset in Presets.All.Values.OrderBy(p => p.Name))
+            {
+                Console.WriteLine($"  {preset.Name,-20} {preset.Description}");
+            }
+            return 0;
+        }
+
+        private static int ListWavelets()
+        {
+            Console.WriteLine("Available wavelets (name[:parameters]):");
+            foreach (IWavelet wavelet in WaveletCatalog.Defaults)
+            {
+                Console.WriteLine($"  {wavelet.Name,-12} {wavelet.Description}");
+                Console.WriteLine($"  {"",-12} at defaults: resolves components " +
+                                  $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
+            }
+            return 0;
+        }
+
+        private static int Simulate(CommandLine options)
+        {
+            string presetName = options.GetString("preset", "single-peak");
+            string outputDirectory = options.GetString("out", "./output");
+            SimulationPreset preset = Presets.Get(presetName);
+
+            OrbitrapSimulatorConfig config = preset.Config;
+            if (options.TryGetInt("seed", out int seed))
+            {
+                config.Seed = seed;
+            }
+            if (options.TryGetDouble("duration", out double duration))
+            {
+                config.DurationSeconds = duration;
+            }
+
+            Console.WriteLine($"Simulating preset '{preset.Name}'");
+            Console.WriteLine($"  {preset.Description}");
+            SimulationResult result = new OrbitrapSimulator(config).Simulate(preset.Species);
+
+            Directory.CreateDirectory(outputDirectory);
+            string csvPath = Path.Combine(outputDirectory, $"{preset.Name}.csv");
+            string truthPath = Path.Combine(outputDirectory, $"{preset.Name}.truth.json");
+            TransientWriter.WriteCsv(result, csvPath);
+            TransientWriter.WriteGroundTruthJson(result, truthPath);
+
+            Console.WriteLine($"  {result.Samples.Length} samples at {result.SamplingRate} Hz " +
+                              $"({result.DurationSeconds * 1000:F1} ms)");
+            Console.WriteLine($"  {result.GroundTruth.Count} isotopologues, " +
+                              $"m/z {result.GroundTruth.Min(t => t.Mz):F3} to {result.GroundTruth.Max(t => t.Mz):F3}");
+            Console.WriteLine($"  wrote {csvPath}");
+            Console.WriteLine($"  wrote {truthPath}");
+            return 0;
+        }
+
+        private static int Analyze(CommandLine options)
+        {
+            if (options.Positional.Count == 0)
+            {
+                Console.Error.WriteLine("analyze needs a transient CSV path.");
+                return 1;
+            }
+            string transientPath = options.Positional[0];
+            string outputDirectory = options.GetString("out", "./output");
+            Directory.CreateDirectory(outputDirectory);
+
+            var transient = new TransientData(transientPath);
+            int maxSamples = options.GetInt("max-samples", 65536);
+            transient.ImportTransientData(maxSamples);
+
+            string name = Path.GetFileNameWithoutExtension(transientPath);
+            AnalyzeTransient(name, transient.Data!, transient.SamplingRate!.Value,
+                transient.CalibrationFactor!.Value, outputDirectory, options, groundTruth: null);
+            return 0;
+        }
+
+        private static int Demo(CommandLine options)
+        {
+            string outputDirectory = options.GetString("out", "./demo-output");
+            Directory.CreateDirectory(outputDirectory);
+
+            foreach (SimulationPreset preset in Presets.All.Values.OrderBy(p => p.Name))
+            {
+                Console.WriteLine();
+                Console.WriteLine($"=== {preset.Name} ===");
+                Console.WriteLine(preset.Description);
+                SimulationResult result = preset.Run();
+
+                string csvPath = Path.Combine(outputDirectory, $"{preset.Name}.csv");
+                TransientWriter.WriteCsv(result, csvPath);
+                TransientWriter.WriteGroundTruthJson(result,
+                    Path.Combine(outputDirectory, $"{preset.Name}.truth.json"));
+
+                // Analyse a window of the transient: the full 4 MHz acquisition is far
+                // more samples than a scalogram needs to show the structure.
+                int maxSamples = options.GetInt("max-samples", 65536);
+                double[] samples = result.Samples.Take(maxSamples).ToArray();
+                AnalyzeTransient(preset.Name, samples, result.SamplingRate,
+                    result.CalibrationCoefficient, outputDirectory, options, result.GroundTruth,
+                    preset.SuggestedC0);
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Done. Output in {Path.GetFullPath(outputDirectory)}");
+            return 0;
+        }
+
+        private static void AnalyzeTransient(string name, double[] samples, int samplingRate,
+            double calibrationCoefficient, string outputDirectory, CommandLine options,
+            IReadOnlyList<IsotopologueTruth>? groundTruth, float defaultC0 = 6f)
+        {
+            (int startOctave, int endOctave) = options.GetOctaveRange("octaves", 2, 6);
+            int voices = options.GetInt("voices", 48);
+            // Each preset declares the c0 its scenario needs: a charge state envelope
+            // whose neighbours differ by ~3% cannot be resolved by the c0 = 6 that suits
+            // a single isolated peak.
+            float c0 = (float)options.GetDouble("c0", defaultC0);
+            // An explicit --wavelet wins; otherwise a Morlet at the effective c0.
+            IWavelet wavelet = options.Has("wavelet")
+                ? WaveletCatalog.Parse(options.GetString("wavelet", "morlet"))
+                : new MorletWavelet(c0);
+            Colormap colormap = Colormaps.Get(options.GetString("colormap", "viridis"));
+            IntensityScale scale = ParseScale(options.GetString("scale", "linear"));
+
+            // Pick an octave range that actually brackets the ions when we know them.
+            double windowSeconds = (double)samples.Length / samplingRate;
+            if (groundTruth != null && groundTruth.Count > 0 && !options.Has("octaves"))
+            {
+                (startOctave, endOctave) = CwtWorkflow.BracketOctaves(
+                    groundTruth, samplingRate, wavelet, windowSeconds);
+            }
+
+            ICwtBackend backend = options.GetString("backend", "auto").ToLowerInvariant() switch
+            {
+                "managed" => CwtBackends.Managed,
+                "native" => CwtBackends.Native,
+                _ => CwtBackends.Default
+            };
+
+            // An explicit m/z range replaces the octave grid: it is the bound a mass
+            // spectrometrist actually knows, and it stops scales being computed over
+            // frequencies no ion of interest can occupy.
+            ScaleGrid? grid = null;
+            if (options.Has("min-mz") || options.Has("max-mz"))
+            {
+                double minMz = options.GetDouble("min-mz", 200);
+                double maxMz = options.GetDouble("max-mz", 4000);
+                grid = ScaleGrid.ForMzRange(minMz, maxMz, calibrationCoefficient, samplingRate,
+                    voices, wavelet, samples.Length);
+                Console.WriteLine($"  CWT: m/z {minMz:F0}-{maxMz:F0}, {grid.Count} scales " +
+                                  $"({grid.Octaves:F2} octaves), {voices} voices, " +
+                                  $"wavelet {wavelet.Name}, {samples.Length} samples");
+                foreach (string clamp in grid.Clamps.Describe())
+                {
+                    Console.WriteLine($"  note: {clamp}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"  CWT: octaves {startOctave}:{endOctave}, {voices} voices, " +
+                                  $"wavelet {wavelet.Name}, {samples.Length} samples");
+            }
+            Console.WriteLine($"  resolves components " +
+                              $">{wavelet.RelativeFrequencyResolution * 100:F1}% apart");
+            // A sharp wavelet on a coarse scale grid is a peak described by two samples.
+            var sampling = new CwtSettings { Voices = voices, Wavelet = wavelet };
+            if (sampling.ScaleAxisIsUndersampled)
+            {
+                Console.WriteLine($"  WARNING: only {sampling.RowsPerResolutionWidth:F1} scale rows " +
+                                  $"per resolution width; raise --voices above " +
+                                  $"{(int)Math.Ceiling(2 / Math.Log2(1 + wavelet.RelativeFrequencyResolution))} " +
+                                  $"or ridge positions will be unreliable");
+            }
+
+            var cwt = new CWTObject(samples, startOctave, endOctave, voices, c0, 0, false,
+                samplingRate, calibrationCoefficient, outputDirectory)
+            {
+                Backend = backend,
+                Wavelet = wavelet,
+                ScaleGrid = grid
+            };
+            cwt.PerformCWT();
+            cwt.CalculateFrequencyAxis();
+            cwt.CalculateTimeAxis();
+            cwt.FrequencyAxis!.CalculateTrueFrequencies();
+            cwt.FrequencyAxis.CalculateMZValues();
+
+            double[,] modulus = cwt.OutputCWT!.ModulusCalculation();
+
+            WriteScalogramPng(modulus, Path.Combine(outputDirectory, $"{name}.scalogram.png"), colormap, scale);
+            cwt.GenerateHeatMap(CWTObject.CWTFeatures.Modulus, $"{name}.heatmap.png",
+                CWTFrequencies.FrequencyUnits.TrueFrequency, name);
+
+            IReadOnlyList<DetectedPeak> peaks = RidgeExtraction.FindPeaks(
+                modulus, cwt.FrequencyAxis.MZValues!,
+                relativeThreshold: 0.1,
+                minimumRowSeparation: new CwtSettings { Voices = voices, Wavelet = wavelet }
+                    .EffectivePeakSeparation(),
+                scaleGrid: cwt.EffectiveScaleGrid);
+
+            // Reading ridges as local maxima assumes each maximum belongs to one ion.
+            // Where charge states sit closer than the wavelet resolves they merge, and the
+            // maximum of the blend belongs to neither; fitting the sum of responses
+            // recovers them. On denatured myoglobin at c0 = 80 this takes the per-peak
+            // mass spread from 1082 ppm to 140 ppm.
+            if (options.Has("refine"))
+            {
+                int before = peaks.Count;
+                peaks = MultiComponentFit.RefinePeaks(peaks, modulus, cwt.EffectiveScaleGrid,
+                    cwt.FrequencyAxis.MZValues!, discoverComponents: options.Has("discover"));
+                Console.WriteLine($"  refined {before} ridges into {peaks.Count} components" +
+                                  (peaks.Count > 0 ? $" (residual {peaks[0].FitResidual:E1})" : ""));
+            }
+
+            int peakCount = options.GetInt("peaks", 10);
+            WritePeakTable(peaks.Take(peakCount).ToList(), groundTruth,
+                Path.Combine(outputDirectory, $"{name}.peaks.csv"));
+
+            // Beats are measured per ridge, before and independently of any grouping: the
+            // whole point of the method is that it needs no assumption about which peaks
+            // belong together, so it still answers when there are too few peaks to form a
+            // comb at all.
+            var beats = new Dictionary<int, IsotopeBeatResult>();
+            if (options.Has("beats"))
+            {
+                MeasureBeats(peaks, modulus, cwt, samplingRate, calibrationCoefficient, beats);
+            }
+
+            if (options.Has("deconvolve") || options.Has("oligomers"))
+            {
+                Deconvolve(name, peaks, outputDirectory, beats,
+                    options.Has("oligomers") ? options.GetInt("oligomers", 8) : 0);
+            }
+        }
+
+        /// <summary>
+        /// Reads the charge off each ridge's own amplitude envelope. Unresolved isotopes
+        /// are two frequencies a little apart, so their sum beats at a rate that depends
+        /// only on the charge and on quantities already known.
+        /// </summary>
+        private static void MeasureBeats(IReadOnlyList<DetectedPeak> peaks, double[,] modulus,
+            CWTObject cwt, int samplingRate, double calibrationCoefficient,
+            Dictionary<int, IsotopeBeatResult> beats)
+        {
+            int columns = modulus.GetLength(1);
+            // The wavelet's cone of influence spoils both ends of the envelope; the beat is
+            // measured on the interior only.
+            int margin = columns / 10;
+            int count = columns - 2 * margin;
+            double windowSeconds = (double)count / samplingRate;
+            Console.WriteLine($"  isotope beats over {windowSeconds * 1000:F1} ms of ridge:");
+
+            foreach (DetectedPeak peak in peaks)
+            {
+                if (count < 64)
+                {
+                    break;
+                }
+                var envelope = new double[count];
+                for (int t = 0; t < count; t++)
+                {
+                    envelope[t] = modulus[peak.RowIndex, margin + t];
+                }
+
+                double carrier = cwt.FrequencyAxis!.TrueFrequencies![peak.RowIndex];
+                IsotopeBeatResult? beat = IsotopeBeatAnalysis.Analyse(
+                    envelope, samplingRate, carrier, calibrationCoefficient);
+                if (beat != null)
+                {
+                    beats[peak.RowIndex] = beat;
+                    Console.WriteLine($"    m/z {peak.Position:F3}: {beat}");
+                }
+                else
+                {
+                    // Saying nothing was measurable is more useful than a charge inferred
+                    // from a trend. The beat slows with charge, so the 1+ figure is the
+                    // shortest window any ion at this frequency could have needed.
+                    double needed = IsotopeBeatAnalysis.RequiredTransientSeconds(
+                        carrier, 1, calibrationCoefficient);
+                    Console.WriteLine($"    m/z {peak.Position:F3}: no beat resolved " +
+                                      $"(even a 1+ ion here needs {needed * 1000:F1} ms)");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Turns a flat ridge list into species. A denatured envelope is ten unrelated m/z
+        /// values until this runs and one protein at ten charge states afterwards, which is
+        /// the only form the answer is useful in once more than one species is present.
+        /// </summary>
+        private static void Deconvolve(string name, IReadOnlyList<DetectedPeak> peaks,
+            string outputDirectory, IReadOnlyDictionary<int, IsotopeBeatResult> beats,
+            int maxOligomerOrder = 0)
+        {
+            var mz = peaks.Select(p => p.Position).ToList();
+            var magnitude = peaks.Select(p => p.Magnitude).ToList();
+            IReadOnlyList<ChargeStateGroup> groups = ChargeStateDeconvolution.Deconvolve(mz, magnitude);
+
+            Console.WriteLine($"  deconvolution: {groups.Count} species from {peaks.Count} peaks");
+
+            // An oligomer series is exactly degenerate under a charge-state comb -- an
+            // n-mer at charge n*z sits on the monomer at z -- so the comb's answer is a
+            // starting point for the ladder search, not a conclusion.
+            if (maxOligomerOrder > 0 && groups.Count > 0)
+            {
+                OligomerLadder? ladder = OligomerAnalysis.FindLadder(mz, magnitude,
+                    groups[0].MonoisotopicMass, new OligomerOptions { MaxOrder = maxOligomerOrder });
+                if (ladder == null)
+                {
+                    Console.WriteLine("  oligomers: no ladder explained the peaks");
+                }
+                else
+                {
+                    Console.WriteLine($"  oligomers: {ladder}");
+                    foreach (KeyValuePair<int, double> entry in
+                             OligomerAnalysis.AbundanceByOrder(ladder).OrderBy(e => e.Key))
+                    {
+                        Console.WriteLine($"    {entry.Key}-mer " +
+                                          $"({ladder.SubunitMass * entry.Key:F1} Da): {entry.Value:E2}");
+                    }
+                }
+            }
+            string path = Path.Combine(outputDirectory, $"{name}.groups.csv");
+            using (var writer = new StreamWriter(path))
+            {
+                writer.WriteLine("species,mass,mass_sd_ppm,score,contiguity,method,charge,mz," +
+                                 "magnitude,implied_mass,mass_error_ppm,envelope_mode," +
+                                 "envelope_similarity,beat_hz,beat_charge");
+
+                // Intensities carry information the comb ignores: electrospray produces a
+                // shaped distribution, so the shape corroborates the mass and names the
+                // ionisation regime.
+                int index = 1;
+                foreach ((ChargeStateGroup group, EnvelopeMatch? envelope) in
+                         EnvelopeTemplateMatching.Annotate(groups, mz, magnitude))
+                {
+                    Console.WriteLine($"    {index}. {group}");
+                    if (envelope != null)
+                    {
+                        Console.WriteLine($"       envelope: {envelope}");
+                    }
+
+                    foreach (AssignedPeak peak in group.Peaks.OrderBy(p => p.Charge))
+                    {
+                        // The beat is an independent read of the charge, so where both
+                        // exist a disagreement is worth seeing rather than hiding.
+                        IsotopeBeatResult? beat = BeatFor(peak, peaks, beats);
+                        if (beat != null && beat.Charge != peak.Charge)
+                        {
+                            Console.WriteLine($"       note: comb says z={peak.Charge} at " +
+                                              $"m/z {peak.Mz:F3}, its beat says z={beat.Charge}");
+                        }
+                        writer.WriteLine(string.Join(",", new[]
+                        {
+                            index.ToString(CultureInfo.InvariantCulture),
+                            group.MonoisotopicMass.ToString("F3", CultureInfo.InvariantCulture),
+                            group.MassUncertaintyPpm.ToString("F1", CultureInfo.InvariantCulture),
+                            group.Score.ToString("F4", CultureInfo.InvariantCulture),
+                            group.Contiguity.ToString("F3", CultureInfo.InvariantCulture),
+                            group.Method.ToString(),
+                            peak.Charge.ToString(CultureInfo.InvariantCulture),
+                            peak.Mz.ToString("F5", CultureInfo.InvariantCulture),
+                            peak.Magnitude.ToString("E4", CultureInfo.InvariantCulture),
+                            peak.ImpliedMass.ToString("F3", CultureInfo.InvariantCulture),
+                            peak.MassErrorPpm.ToString("F1", CultureInfo.InvariantCulture),
+                            envelope?.Mode.ToString() ?? "",
+                            envelope?.Similarity.ToString("F4", CultureInfo.InvariantCulture) ?? "",
+                            beat?.BeatFrequencyHz.ToString("F2", CultureInfo.InvariantCulture) ?? "",
+                            beat?.Charge.ToString(CultureInfo.InvariantCulture) ?? ""
+                        }));
+                    }
+                    index++;
+                }
+            }
+            Console.WriteLine($"  wrote {path}");
+        }
+
+        /// <summary>Looks up the beat measured on the ridge an assigned peak came from.</summary>
+        private static IsotopeBeatResult? BeatFor(AssignedPeak peak,
+            IReadOnlyList<DetectedPeak> peaks, IReadOnlyDictionary<int, IsotopeBeatResult> beats)
+        {
+            DetectedPeak? ridge = peaks.FirstOrDefault(p => p.Position == peak.Mz);
+            return ridge != null && beats.TryGetValue(ridge.RowIndex, out IsotopeBeatResult? beat)
+                ? beat
+                : null;
+        }
+
+        private static void WriteScalogramPng(double[,] modulus, string path, Colormap colormap, IntensityScale scale)
+        {
+            // Fixed output size rather than one capped at the matrix dimensions: a
+            // two-octave CWT is only ~100 rows tall, which would otherwise render as a
+            // 1200x100 sliver. Nearest-neighbour resampling keeps thin ridges visible.
+            const int Width = 1200;
+            const int Height = 600;
+            int width = Width;
+            int height = Height;
+            byte[] rgba = ScalogramRenderer.ToRgba(modulus, width, height, colormap, scale);
+            PngWriter.Write(path, rgba, width, height);
+            Console.WriteLine($"  wrote {path}");
+        }
+
+        private static void WritePeakTable(IReadOnlyList<DetectedPeak> peaks,
+            IReadOnlyList<IsotopologueTruth>? groundTruth, string path)
+        {
+            using var writer = new StreamWriter(path);
+            bool scored = groundTruth != null && groundTruth.Count > 0;
+            writer.WriteLine(scored
+                ? "rank,recovered_mz,magnitude,nearest_true_mz,error_mz,error_ppm"
+                : "rank,recovered_mz,magnitude");
+
+            int rank = 1;
+            foreach (DetectedPeak peak in peaks)
+            {
+                if (scored)
+                {
+                    IsotopologueTruth nearest = groundTruth!
+                        .OrderBy(t => Math.Abs(t.Mz - peak.Position))
+                        .First();
+                    double error = peak.Position - nearest.Mz;
+                    double ppm = error / nearest.Mz * 1e6;
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        rank.ToString(CultureInfo.InvariantCulture),
+                        peak.Position.ToString("F5", CultureInfo.InvariantCulture),
+                        peak.Magnitude.ToString("E4", CultureInfo.InvariantCulture),
+                        nearest.Mz.ToString("F5", CultureInfo.InvariantCulture),
+                        error.ToString("F5", CultureInfo.InvariantCulture),
+                        ppm.ToString("F1", CultureInfo.InvariantCulture)
+                    }));
+                }
+                else
+                {
+                    writer.WriteLine(string.Join(",", new[]
+                    {
+                        rank.ToString(CultureInfo.InvariantCulture),
+                        peak.Position.ToString("F5", CultureInfo.InvariantCulture),
+                        peak.Magnitude.ToString("E4", CultureInfo.InvariantCulture)
+                    }));
+                }
+                rank++;
+            }
+            Console.WriteLine($"  wrote {path} ({peaks.Count} peaks)");
+
+            if (scored && peaks.Count > 0)
+            {
+                DetectedPeak strongest = peaks[0];
+                IsotopologueTruth nearest = groundTruth!
+                    .OrderBy(t => Math.Abs(t.Mz - strongest.Position))
+                    .First();
+                double ppm = (strongest.Position - nearest.Mz) / nearest.Mz * 1e6;
+                Console.WriteLine($"  strongest ridge m/z {strongest.Position:F4} vs true {nearest.Mz:F4} " +
+                                  $"({ppm:F0} ppm)");
+            }
+        }
+
+        private static IntensityScale ParseScale(string name)
+        {
+            return name.ToLowerInvariant() switch
+            {
+                "log" or "logarithmic" => IntensityScale.Logarithmic,
+                "sqrt" or "squareroot" => IntensityScale.SquareRoot,
+                "linear" => IntensityScale.Linear,
+                _ => throw new ArgumentException($"Unknown intensity scale '{name}'; use linear, log or sqrt")
+            };
+        }
+    }
+}

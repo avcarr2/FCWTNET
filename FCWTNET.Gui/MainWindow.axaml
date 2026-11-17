@@ -1,0 +1,256 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FCWTNET.Gui.MainWindow"
+        Title="FCWTNET - Orbitrap CWT Explorer"
+        Width="1280" Height="860"
+        MinWidth="900" MinHeight="600"
+        Background="#12121A">
+
+  <Grid ColumnDefinitions="320,*">
+
+    <!-- Controls -->
+    <Border Grid.Column="0" Background="#1B1B26" Padding="16">
+      <ScrollViewer>
+        <StackPanel Spacing="14">
+
+          <TextBlock Text="Simulation" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Preset" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="PresetBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnPresetChanged"/>
+          </StackPanel>
+
+          <TextBlock x:Name="PresetDescription" TextWrapping="Wrap"
+                     Foreground="#8A8AA0" FontSize="11"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Duration (ms)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="DurationBox" Minimum="0.1" Maximum="1000"
+                           Increment="1" Value="16" FormatString="0.##"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Decay constant (ms)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="DecayBox" Minimum="0.01" Maximum="10000"
+                           Increment="1" Value="500" FormatString="0.##"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Signal-to-noise (0 = noiseless)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="SnrBox" Minimum="0" Maximum="100000"
+                           Increment="10" Value="100" FormatString="0.#"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="ADC bits (0 = no quantisation)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="AdcBox" Minimum="0" Maximum="32"
+                           Increment="1" Value="0" FormatString="0"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Frequency drift (%/s)" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="DriftBox" Minimum="-100" Maximum="100"
+                           Increment="1" Value="0" FormatString="0.###"/>
+          </StackPanel>
+
+          <!-- Only meaningful for presets built from a charge state envelope. -->
+          <StackPanel x:Name="ChargePanel" Spacing="10" IsVisible="False">
+            <Separator Background="#2A2A38"/>
+            <TextBlock Text="Charge envelope" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#E8E8F0"/>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Ionization mode" Foreground="#A0A0B4" FontSize="12"/>
+              <ComboBox x:Name="IonizationBox" HorizontalAlignment="Stretch"
+                        SelectionChanged="OnIonizationChanged"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Centroid charge (0 = from model)" Foreground="#A0A0B4" FontSize="12"/>
+              <NumericUpDown x:Name="CentroidBox" Minimum="0" Maximum="200"
+                             Increment="1" Value="0" FormatString="0.##"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Envelope width (0 = from model)" Foreground="#A0A0B4" FontSize="12"/>
+              <NumericUpDown x:Name="EnvelopeWidthBox" Minimum="0" Maximum="50"
+                             Increment="0.5" Value="0" FormatString="0.##"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+              <TextBlock Text="Isotope peaks per charge state" Foreground="#A0A0B4" FontSize="12"/>
+              <NumericUpDown x:Name="IsotopePeaksBox" Minimum="1" Maximum="80"
+                             Increment="1" Value="24" FormatString="0"/>
+            </StackPanel>
+
+            <TextBlock x:Name="EnvelopeSummary" TextWrapping="Wrap"
+                       Foreground="#8A8AA0" FontSize="11"/>
+          </StackPanel>
+
+          <Separator Background="#2A2A38"/>
+          <TextBlock Text="Transform" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Voices per octave" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="VoicesBox" Minimum="4" Maximum="512"
+                           Increment="8" Value="48" FormatString="0"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Wavelet" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="WaveletBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnWaveletChanged"/>
+          </StackPanel>
+
+          <!-- c0 only means anything to the Morlet; other wavelets carry their own shape
+               parameter, set through the specification box below. -->
+          <StackPanel x:Name="C0Panel" Spacing="4">
+            <TextBlock Text="Morlet c0" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="C0Box" Minimum="1" Maximum="500"
+                           Increment="1" Value="6" FormatString="0.##"/>
+          </StackPanel>
+
+          <StackPanel x:Name="WaveletParameterPanel" Spacing="4" IsVisible="False">
+            <TextBlock x:Name="WaveletParameterLabel" Foreground="#A0A0B4" FontSize="12"
+                       TextWrapping="Wrap"/>
+            <TextBox x:Name="WaveletParameterBox" Watermark="defaults"/>
+          </StackPanel>
+
+          <TextBlock x:Name="WaveletSummary" TextWrapping="Wrap"
+                     Foreground="#8A8AA0" FontSize="11"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Max samples" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="MaxSamplesBox" Minimum="1024" Maximum="1048576"
+                           Increment="8192" Value="65536" FormatString="0"/>
+          </StackPanel>
+
+          <!-- Bounding by m/z replaces the octave bracket: it is the range an instrument
+               is actually set up around, and it costs far fewer scales. -->
+          <CheckBox x:Name="MzRangeBox" Content="Bound the transform by m/z"
+                    Foreground="#C8C8D8" IsCheckedChanged="OnMzRangeToggled"/>
+
+          <StackPanel x:Name="MzRangePanel" Spacing="4" IsVisible="False">
+            <Grid ColumnDefinitions="*,8,*">
+              <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Text="Min m/z" Foreground="#A0A0B4" FontSize="12"/>
+                <NumericUpDown x:Name="MinMzBox" Minimum="10" Maximum="100000"
+                               Increment="50" Value="600" FormatString="0.#"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2" Spacing="4">
+                <TextBlock Text="Max m/z" Foreground="#A0A0B4" FontSize="12"/>
+                <NumericUpDown x:Name="MaxMzBox" Minimum="20" Maximum="200000"
+                               Increment="50" Value="2300" FormatString="0.#"/>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+
+          <Separator Background="#2A2A38"/>
+          <TextBlock Text="Analysis" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <CheckBox x:Name="RefineBox" Content="Fit overlapping ridges"
+                    Foreground="#C8C8D8" IsCheckedChanged="OnRefineToggled"/>
+          <TextBlock Text="Fits a sum of wavelet responses instead of reading local maxima, so components closer together than the wavelet resolves can still be located."
+                     TextWrapping="Wrap" Foreground="#8A8AA0" FontSize="11"/>
+
+          <CheckBox x:Name="DiscoverBox" Content="Discover hidden components"
+                    Foreground="#C8C8D8" IsEnabled="False"/>
+          <TextBlock Text="Splits a blend into ions that produced no maximum of their own. A model-selection guess from one profile, so a noisy transient can talk it into an ion that is not there."
+                     TextWrapping="Wrap" Foreground="#8A8AA0" FontSize="11"/>
+
+          <CheckBox x:Name="DeconvolveBox" Content="Group charge states into species"
+                    Foreground="#C8C8D8"/>
+
+          <CheckBox x:Name="OligomerBox" Content="Read as an oligomer series"
+                    Foreground="#C8C8D8" IsCheckedChanged="OnOligomerToggled"/>
+          <TextBlock Text="An n-mer at charge n*z sits exactly on the monomer at z, so a charge-state comb cannot tell them apart. This asks instead which charges the Rayleigh limit makes believable."
+                     TextWrapping="Wrap" Foreground="#8A8AA0" FontSize="11"/>
+
+          <StackPanel x:Name="OligomerPanel" Spacing="4" IsVisible="False">
+            <TextBlock Text="Largest oligomer considered" Foreground="#A0A0B4" FontSize="12"/>
+            <NumericUpDown x:Name="MaxOrderBox" Minimum="2" Maximum="24"
+                           Increment="1" Value="6" FormatString="0"/>
+          </StackPanel>
+
+          <Separator Background="#2A2A38"/>
+          <TextBlock Text="Display" FontSize="16" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Colormap" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="ColormapBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnDisplayChanged"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Intensity scale" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="ScaleBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnDisplayChanged"/>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="Vertical axis" Foreground="#A0A0B4" FontSize="12"/>
+            <ComboBox x:Name="AxisBox" HorizontalAlignment="Stretch"
+                      SelectionChanged="OnDisplayChanged"/>
+          </StackPanel>
+
+          <CheckBox x:Name="TruthOverlayBox" Content="Mark true m/z" IsChecked="True"
+                    Foreground="#C8C8D8" IsCheckedChanged="OnDisplayChanged"/>
+
+          <Button x:Name="RunButton" Content="Run" Click="OnRun"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  Background="#3B5BDB" Foreground="White" Padding="0,10"
+                  FontWeight="SemiBold"/>
+
+          <TextBlock x:Name="StatusText" TextWrapping="Wrap"
+                     Foreground="#8A8AA0" FontSize="11"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Scalogram and readouts -->
+    <Grid Grid.Column="1" RowDefinitions="*,220" Margin="12">
+
+      <Border Grid.Row="0" Background="#0C0C12" CornerRadius="4" ClipToBounds="True">
+        <Grid>
+          <Image x:Name="ScalogramImage" Stretch="Fill"
+                 RenderOptions.BitmapInterpolationMode="None"/>
+          <!-- Ground-truth markers and the axis labels are drawn over the bitmap. -->
+          <Canvas x:Name="OverlayCanvas" IsHitTestVisible="False"/>
+          <TextBlock x:Name="PlaceholderText"
+                     Text="Press Run to simulate a transient and transform it."
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="#55556A"/>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Background="#15151E" CornerRadius="4" Margin="0,12,0,0" Padding="12">
+        <Grid ColumnDefinitions="1.4*,1.4*,*">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock x:Name="PeakHeading" Text="Detected peaks"
+                       FontWeight="SemiBold" Foreground="#E8E8F0"/>
+            <ScrollViewer Height="160" Background="#0C0C12" Padding="8">
+              <TextBlock x:Name="PeakText" FontFamily="monospace" FontSize="11"
+                         Foreground="#C8C8D8" TextWrapping="NoWrap"/>
+            </ScrollViewer>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Spacing="6" Margin="16,0,0,0">
+            <TextBlock Text="Species" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+            <ScrollViewer Height="160" Background="#0C0C12" Padding="8">
+              <TextBlock x:Name="SpeciesText" FontFamily="monospace" FontSize="11"
+                         Foreground="#C8C8D8" TextWrapping="NoWrap"
+                         Text="Enable &quot;Group charge states into species&quot; to deconvolve."/>
+            </ScrollViewer>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6" Margin="16,0,0,0">
+            <TextBlock Text="Transient" FontWeight="SemiBold" Foreground="#E8E8F0"/>
+            <Border Background="#0C0C12" CornerRadius="3" Height="160">
+              <Image x:Name="TransientImage" Stretch="Fill"
+                     RenderOptions.BitmapInterpolationMode="None"/>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

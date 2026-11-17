@@ -7,11 +7,12 @@ using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
 using OxyPlot.SkiaSharp;
+using FCWTNET.Visualization;
 namespace FCWTNET
 {
     public class PlottingUtils
     {
-        
+
         /// <summary>
         /// Creates a heat map plot from a 2D array with proper frequency and time axes
         /// </summary>
@@ -27,11 +28,19 @@ namespace FCWTNET
             double y0 = freqAxis[0];
             double y1 = freqAxis[^1];
             var model = new PlotModel { Title = plotTitle };
-            model.Axes.Add(new LinearColorAxis { Palette = OxyPalettes.Rainbow(100), Position = AxisPosition.Right});
+            // Viridis rather than a rainbow: CWT magnitude is a sequential quantity, and a
+            // rainbow's lightness rises and falls across the ramp, which invents banding
+            // that is not in the data and hides real structure. Viridis is monotonic in
+            // lightness, so it survives greyscale, print and colour vision deficiency.
+            model.Axes.Add(new LinearColorAxis
+            {
+                Palette = Colormaps.Default.ToOxyPalette(256),
+                Position = AxisPosition.Right
+            });
             model.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
-                Title = "Time (ms)",
+                Title = "Time (s)",
                 FontSize = 14,
                 TitleFontSize = 16
             });
@@ -85,7 +94,7 @@ namespace FCWTNET
             model.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
-                Title = "Time (ms)",
+                Title = "Time (s)",
                 FontSize = 14,
                 TitleFontSize = 16
             });
@@ -151,7 +160,7 @@ namespace FCWTNET
                 Position = AxisPosition.Bottom,
                 MinimumPadding = 0.05,
                 MaximumPadding = 0.05,
-                Title = "Time (ms)",
+                Title = "Time (s)",
                 FontSize = 14,
                 TitleFontSize = 16,
                 AxisTitleDistance = 10,
@@ -253,6 +262,7 @@ namespace FCWTNET
             {
                 filePath = filePath + ".pdf";
             }
+            EnsureDirectory(filePath);
             using (var exportStream = File.Create(filePath))
             {
                 var pdfExport = new OxyPlot.SkiaSharp.PdfExporter
@@ -261,6 +271,72 @@ namespace FCWTNET
                     Height = plotHeight
                 };
                 pdfExport.Export(plotModel, exportStream);
+            }
+        }
+
+        /// <summary>
+        /// Exports a plot to PNG. Headless-friendly, so it works in CI and over SSH where
+        /// a viewer is not available.
+        /// </summary>
+        /// <param name="plotModel">Plot to export</param>
+        /// <param name="filePath">Destination path; ".png" is appended when no extension is given</param>
+        /// <param name="plotWidth">Width in pixels</param>
+        /// <param name="plotHeight">Height in pixels</param>
+        /// <param name="resolutionScale">Pixels per device-independent unit; raise for high-DPI output</param>
+        public static void ExportPlotPNG(PlotModel plotModel, string filePath, int plotWidth = 1000,
+            int plotHeight = 700, float resolutionScale = 2f)
+        {
+            if (string.IsNullOrEmpty(Path.GetExtension(filePath)))
+            {
+                filePath = filePath + ".png";
+            }
+            EnsureDirectory(filePath);
+            using (var exportStream = File.Create(filePath))
+            {
+                var pngExport = new OxyPlot.SkiaSharp.PngExporter
+                {
+                    Width = plotWidth,
+                    Height = plotHeight,
+                    Dpi = 96 * resolutionScale
+                };
+                pngExport.Export(plotModel, exportStream);
+            }
+        }
+
+        /// <summary>
+        /// Exports to PDF or PNG based on the file extension, so callers can just name a file.
+        /// </summary>
+        /// <exception cref="ArgumentException">The extension is neither .pdf nor .png.</exception>
+        public static void ExportPlot(PlotModel plotModel, string filePath, int plotWidth = 1000, int plotHeight = 700)
+        {
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+            switch (extension)
+            {
+                case ".pdf":
+                    ExportPlotPDF(plotModel, filePath, plotWidth, plotHeight);
+                    break;
+                case ".png":
+                    ExportPlotPNG(plotModel, filePath, plotWidth, plotHeight);
+                    break;
+                default:
+                    throw new ArgumentException(
+                        $"Unsupported plot format '{extension}'; use .pdf or .png", nameof(filePath));
+            }
+        }
+
+        /// <summary>True when the extension names a format <see cref="ExportPlot"/> can write.</summary>
+        public static bool IsSupportedPlotExtension(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+            return extension == ".pdf" || extension == ".png";
+        }
+
+        private static void EnsureDirectory(string filePath)
+        {
+            string? directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
             }
         }
         public enum XYPlotOptions

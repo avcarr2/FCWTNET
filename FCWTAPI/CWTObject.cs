@@ -33,7 +33,40 @@ namespace FCWTNET
         public double[]? TimeAxis { get; private set; }
         public string? WorkingPath { get; }
 
-        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes, 
+        /// <summary>
+        /// Transform implementation used by <see cref="PerformCWT"/>. Defaults to native
+        /// fCWT on Windows and the managed Morlet CWT elsewhere; set explicitly to pin one.
+        /// </summary>
+        public Transform.ICwtBackend Backend { get; set; } = Transform.CwtBackends.Default;
+
+        /// <summary>
+        /// Analysing wavelet. Null means a complex Morlet built from <see cref="C0"/>,
+        /// which is the historical behaviour. Setting this also changes the frequency
+        /// axis, because every wavelet peaks at its own point on the scale grid.
+        /// </summary>
+        public Transform.Wavelets.IWavelet? Wavelet { get; set; }
+
+        /// <summary>The wavelet actually in use.</summary>
+        public Transform.Wavelets.IWavelet EffectiveWavelet =>
+            Wavelet ?? new Transform.Wavelets.MorletWavelet(C0);
+
+        /// <summary>
+        /// Explicit scale grid. Null falls back to the whole-octave grid described by
+        /// <see cref="Psoctave"/>, <see cref="Pendoctave"/> and <see cref="Pnbvoice"/>.
+        /// Setting it bounds the analysed frequency range, which both saves work and keeps
+        /// the wavelet short enough to avoid FFT wrap-around at the signal edges.
+        /// </summary>
+        public Transform.ScaleGrid? ScaleGrid { get; set; }
+
+        /// <summary>
+        /// The grid actually transformed. Both <see cref="PerformCWT"/> and
+        /// <see cref="CalculateFrequencyAxis"/> read from this, so the axis can never
+        /// describe a different set of rows than were computed.
+        /// </summary>
+        public Transform.ScaleGrid EffectiveScaleGrid =>
+            ScaleGrid ?? Transform.ScaleGrid.ForOctaves(Psoctave, Pendoctave, Pnbvoice, EffectiveWavelet);
+
+        public CWTObject(double[] inputData, int psoctave, int pendoctave, int pnbvoice, float c0, int nthreads, bool use_optimization_schemes,
             int? samplingRate = null, double? calibrationCoefficient = null, string? workingPath = null)
         {
             InputData = inputData;
@@ -56,8 +89,23 @@ namespace FCWTNET
         /// </summary>
         public void PerformCWT()
         {
-            FCWTAPI.CWT(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads, Use_Optimization_Schemes, 
-                out double[][] flippedReal, out double[][] flippedImag);
+            // A wavelet set here wins over the backend's own default. An explicit scale
+            // grid additionally forces the managed backend, since fCWT cannot express one.
+            Transform.ICwtBackend backend = Wavelet != null || ScaleGrid != null
+                ? Transform.CwtBackends.ManagedWith(EffectiveWavelet)
+                : Backend;
+
+            double[][] flippedReal;
+            double[][] flippedImag;
+            if (ScaleGrid != null)
+            {
+                backend.Transform(InputData, ScaleGrid, Nthreads, out flippedReal, out flippedImag);
+            }
+            else
+            {
+                backend.Transform(InputData, Psoctave, Pendoctave, Pnbvoice, C0, Nthreads,
+                    Use_Optimization_Schemes, out flippedReal, out flippedImag);
+            }
             double[][] real = new double[flippedReal.Length][];
             double[][] imag = new double[flippedImag.Length][];
             for (int i = 1; i <= flippedReal.Length; i++)
@@ -80,18 +128,17 @@ namespace FCWTNET
         /// </summary>
         public void CalculateFrequencyAxis()
         {
-            int octaveNum = 1 + Pendoctave - Psoctave;
-            double deltaA = 1 / Convert.ToDouble(Pnbvoice);
-            double[] freqArray = new double[octaveNum * Pnbvoice];
-            for (int i = 1 ; i <= octaveNum * Pnbvoice; i++)
-            {
-                freqArray[^i] = C0 / Math.Pow(2, (1 + (i) * deltaA));
-            }
-            FrequencyAxis = new CWTFrequencies(freqArray, Pnbvoice, SamplingRate, CalibrationCoefficient);            
+            // Delegates to CwtScales so the axis always describes the rows the transform
+            // backend actually produced. Frequencies are normalised (cycles per sample),
+            // ascending, which is what CWTFrequencies expects: it multiplies by the
+            // sampling rate to reach Hz, and binary-searches the axis assuming it is sorted.
+            Transform.ScaleGrid grid = EffectiveScaleGrid;
+            FrequencyAxis = new CWTFrequencies(grid.AscendingCentreFrequencies, grid.VoicesPerOctave,
+                SamplingRate, CalibrationCoefficient);
         }
         /// <summary>
         /// Generates an array corresponding to the individual timepoints of the transient operated on by the CWT
-        /// Timepoints are given in milliseconds
+        /// Timepoints are given in seconds (the step is 1/SamplingRate)
         /// </summary>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
@@ -153,9 +200,9 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
             }
-            if (Path.GetExtension(fileName) != ".pdf")
+            if (!PlottingUtils.IsSupportedPlotExtension(fileName))
             {
-                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+                throw new ArgumentException("fileName must have the .pdf or .png extension", nameof(fileName));
             }
             double[] plotFrequencyAxis;
             switch (frequencyAxisUnits)
@@ -240,7 +287,7 @@ namespace FCWTNET
             }
             if (dataName != null)
             {
-                title = dataName + title;
+                title = dataName + " " + title;
             }
             // Reflects data about the xy axis to plot CWT data with Freqeuncy in the y-axis and time in the x-axis
             double[,] xyReflectedData = new double[finalData.GetLength(1), finalData.GetLength(0)];
@@ -253,7 +300,7 @@ namespace FCWTNET
             }            
             PlotModel cwtPlot = PlottingUtils.GenerateCWTHeatMap(xyReflectedData, title, finalTimeAxis, plotFrequencyAxis);
             string filePath = Path.Combine(WorkingPath, fileName);
-            PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
+            PlottingUtils.ExportPlot(cwtPlot, filePath);
         }      
 
         /// <summary>
@@ -285,9 +332,9 @@ namespace FCWTNET
             {
                 throw new ArgumentNullException(nameof(FrequencyAxis), "FrequencyAxis cannot be null");
             }
-            if (Path.GetExtension(fileName) != ".pdf")
+            if (!PlottingUtils.IsSupportedPlotExtension(fileName))
             {
-                throw new ArgumentException(nameof(fileName), "fileName must have the .pdf extension");
+                throw new ArgumentException("fileName must have the .pdf or .png extension", nameof(fileName));
             }
             double[] plotFrequencyAxis;
             switch (frequencyAxisUnits)
@@ -341,7 +388,7 @@ namespace FCWTNET
             }
             if (dataName != null)
             {
-                title = dataName + title;
+                title = dataName + " " + title;
             }
 
             int[] indFrequencies;
@@ -437,7 +484,7 @@ namespace FCWTNET
 
             PlotModel cwtPlot = PlottingUtils.GenerateXYPlotCWT(xyReflectedData, indFrequencies, finalTimeAxis, FrequencyAxis.WaveletCenterFrequencies, PlottingUtils.PlotTitles.Custom, plotMode, title);
             string filePath = Path.Combine(WorkingPath, fileName);
-            PlottingUtils.ExportPlotPDF(cwtPlot, filePath);
+            PlottingUtils.ExportPlot(cwtPlot, filePath);
 
         }
                

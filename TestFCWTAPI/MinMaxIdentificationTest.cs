@@ -9,6 +9,13 @@ using NUnit.Framework;
 
 namespace TestFCWTAPI
 {
+    // Exploratory fixture: every test in it is [Ignore]d, but OneTimeSetUp still ran on
+    // every build, spending ~100 seconds CWT-ing two large real transients and then
+    // dying with OutOfMemoryException (800000 samples x 250 scales needs several GB once
+    // the jagged arrays and their 2D copies coexist). Marking the fixture Explicit keeps
+    // the setup out of unattended runs; the transient lengths below are trimmed so it
+    // still works when someone runs it deliberately.
+    [Explicit("Exploratory plotting/smoothing over large real transients; slow and memory-hungry")]
     public class MinMaxIdentificationTest
     {
         public CWTObject MyoglobinTestCWT { get; set; }
@@ -19,7 +26,7 @@ namespace TestFCWTAPI
             // Create test data from real transients
             string myoZ13TransientPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles", "SampleTransient_Myo_z13.csv");
             TransientData myoZ13Transient = new(myoZ13TransientPath);
-            myoZ13Transient.ImportTransientData(800000);
+            myoZ13Transient.ImportTransientData(200000);
             string testPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles");
             var myoZ13CWT = new CWTObject(myoZ13Transient.Data, 2, 3, 125, (float)(2 * Math.Tau), 4, false, myoZ13Transient.SamplingRate, myoZ13Transient.CalibrationFactor, testPath);
             myoZ13CWT.PerformCWT();
@@ -29,7 +36,7 @@ namespace TestFCWTAPI
             // Plot modulus and real heatmap for basic visualization 
             string complexTransientPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestDataFiles", "ComplexTransient_protein_mixture_512ms.csv");
             TransientData complexTransient = new(complexTransientPath);
-            complexTransient.ImportTransientData(700000);
+            complexTransient.ImportTransientData(200000);
             var complexTransientCWT = new CWTObject(complexTransient.Data, 2, 3, 125, (float)(15 * Math.Tau), 4, false, complexTransient.SamplingRate, complexTransient.CalibrationFactor, testPath);
             complexTransientCWT.PerformCWT();
             complexTransientCWT.CalculateTimeAxis();
